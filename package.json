@@ -1,0 +1,90 @@
+{
+  "name": "@kwokkwok/agent-task",
+  "version": "0.1.0",
+  "description": "Turn AI work into trackable tasks with workspaces, deliverables, feedback, and WebUI review.",
+  "type": "module",
+  "bin": {
+    "agent-task": "./bin/agent-task.js"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "bin",
+    "lib/commands",
+    "lib/defaults",
+    "lib/db.js",
+    "lib/feedback.js",
+    "lib/format.js",
+    "lib/openclaw-dispatch.js",
+    "lib/openclaw.js",
+    "lib/prompt-builders.js",
+    "lib/prompt-template-store.js",
+    "lib/prompt.js",
+    "lib/task-run.js",
+    "lib/task-type.js",
+    "lib/task.js",
+    "lib/webui/api.js",
+    "lib/webui/auth.js",
+    "lib/webui/config-store.js",
+    "lib/webui/json-store.js",
+    "lib/webui/pid-store.js",
+    "lib/webui/scheduler.js",
+    "lib/webui/server.js",
+    "lib/webui/static",
+    "lib/webui/system-log.js",
+    "lib/webui/token-store.js",
+    "lib/workspace.js",
+    "docs/prompt-templates/agent-execution.md",
+    "docs/prompt-templates/agent-onboarding.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p lib/webui/client/tsconfig.json --noEmit",
+    "web:dev": "vite --config lib/webui/client/vite.config.js",
+    "web:build": "vite build --config lib/webui/client/vite.config.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "commander": "^13.0.0"
+  },
+  "devDependencies": {
+    "@base-ui/react": "^1.3.0",
+    "@radix-ui/react-alert-dialog": "^1.1.15",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-progress": "^1.1.7",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "@tailwindcss/vite": "^4.1.13",
+    "@types/node": "^24.5.2",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "dompurify": "^3.3.3",
+    "lucide-react": "^0.544.0",
+    "marked": "^16.3.0",
+    "motion": "^12.38.0",
+    "radix-ui": "^1.4.3",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "shadcn": "^4.1.2",
+    "sonner": "^2.0.7",
+    "tailwindcss": "^4.1.13",
+    "tailwind-merge": "^3.3.1",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.3",
+    "vitest": "^3.0.0"
+  },
+  "overrides": {
+    "picomatch": "^4.0.4"
+  }
+}

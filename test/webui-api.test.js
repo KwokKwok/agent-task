@@ -1,0 +1,482 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
+const { sendAgentMessageMock, restartGatewayMock } = vi.hoisted(() => ({
+  sendAgentMessageMock: vi.fn(),
+  restartGatewayMock: vi.fn(),
+}));
+
+vi.mock('../lib/openclaw.js', async () => {
+  const actual = await vi.importActual('../lib/openclaw.js');
+  return {
+    ...actual,
+    sendAgentMessage: sendAgentMessageMock,
+    restartGateway: restartGatewayMock,
+  };
+});
+
+import { resetDb } from '../lib/db.js';
+import { buildChatAgentPrompt, buildExecutionReferencePrompt } from '../lib/prompt-builders.js';
+import { createTask, setStatus } from '../lib/task.js';
+import { createTaskRun } from '../lib/task-run.js';
+import { readWebuiConfig } from '../lib/webui/config-store.js';
+import { createSessionCookie } from '../lib/webui/auth.js';
+import { startWebUiServer } from '../lib/webui/server.js';
+import { writeSystemLog } from '../lib/webui/system-log.js';
+import { ensureToken } from '../lib/webui/token-store.js';
+
+const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8'));
+
+let tmpDir;
+let server;
+let baseUrl;
+let sessionCookie;
+const schedulerMock = {
+  start: vi.fn(),
+  stop: vi.fn(),
+  runCycle: vi.fn().mockResolvedValue({ ok: true }),
+};
+
+async function startTestServer() {
+  server = startWebUiServer({ host: '127.0.0.1', port: 0, scheduler: schedulerMock });
+  await new Promise((resolve) => server.once('listening', resolve));
+  const address = server.address();
+  baseUrl = `http://127.0.0.1:${address.port}`;
+  sessionCookie = createSessionCookie(ensureToken());
+}
+
+async function stopTestServer() {
+  if (!server) return;
+  await new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+  server = null;
+}
+
+async function fetchJson(pathname, init = {}) {
+  const res = await fetch(`${baseUrl}${pathname}`, {
+    ...init,
+    headers: {
+      Cookie: sessionCookie,
+      ...(init.headers || {}),
+    },
+  });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  return { res, data };
+}
+
+describe('webui api boundaries', () => {
+  beforeAll(async () => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'agent-task-webui-api-'));
+    process.env.AGENT_TASK_HOME = tmpDir;
+    process.env.OPENCLAW_HOME = tmpDir;
+    resetDb();
+    await startTestServer();
+  });
+
+  beforeEach(() => {
+    schedulerMock.start.mockClear();
+    schedulerMock.stop.mockClear();
+    schedulerMock.runCycle.mockClear();
+    schedulerMock.runCycle.mockResolvedValue({ ok: true });
+    sendAgentMessageMock.mockReset();
+    restartGatewayMock.mockReset();
+    sendAgentMessageMock.mockResolvedValue({
+      ok: true,
+      code: 0,
+      signal: null,
+      stdout: '写入完成',
+      stderr: '',
+    });
+    restartGatewayMock.mockResolvedValue({
+      ok: true,
+      code: 0,
+      signal: null,
+      stdout: 'gateway restarted',
+      stderr: '',
+    });
+  });
+
+  afterAll(async () => {
+    await stopTestServer();
+    resetDb();
+    rmSync(tmpDir, { recursive: true, force: true });
+    delete process.env.AGENT_TASK_HOME;
+    delete process.env.OPENCLAW_HOME;
+  });
+
+  it('lists records for authenticated requests', async () => {
+    const task = createTask({ title: 'API smoke task', status: 'todo', priority: 'high' });
+    const { res, data } = await fetchJson('/api/tasks');
+
+    expect(res.status).toBe(200);
+    expect(data.items.some((item) => item.id === task.id && item.title === 'API smoke task')).toBe(true);
+  });
+
+  it('updates record status through the API', async () => {
+    const task = createTask({ title: '状态更新' });
+    const { res, data } = await fetchJson(`/api/tasks/${task.id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'in_progress' }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(data.status).toBe('in_progress');
+  });
+
+  it('serves feedback summary and records human reject feedback', async () => {
+    const task = createTask({ title: '反馈 API' });
+    setStatus(task.id, 'done');
+
+    const rejectRes = await fetchJson(`/api/tasks/${task.id}/feedback/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: '请补充方案对比。' }),
+    });
+    expect(rejectRes.res.status).toBe(200);
+
+    const feedbackRes = await fetchJson(`/api/tasks/${task.id}/feedback`);
+    expect(feedbackRes.res.status).toBe(200);
+    expect(feedbackRes.data.content).toContain('请补充方案对比。');
+    expect(schedulerMock.runCycle).toHaveBeenCalledWith('feedback_reject');
+  });
+
+  it('returns prompt content for copying into OpenClaw agents', async () => {
+    const { res, data } = await fetchJson('/api/prompt');
+
+    expect(res.status).toBe(200);
+    expect(data.content).toContain('默认就使用 `agent-task`');
+    expect(data.content).toContain('任务创建后会自动调度');
+  });
+
+  it('builds a chat-agent guidance prompt from strategy summaries', () => {
+    const config = readWebuiConfig();
+    const prompt = buildChatAgentPrompt({ dataRoot: '/tmp/agent-task', config });
+
+    expect(prompt).toContain('## 任务管理（`agent-task` 是当前默认的任务方式）');
+    expect(prompt).toContain('默认就使用 `agent-task`');
+    expect(prompt).toContain('agent-task create --title "<title>" --description "<description>"');
+    expect(prompt).toContain('| type_id | 任务名称 | 触发方式 | 创建任务前需要做什么 |');
+    expect(prompt).not.toContain('report.mp3');
+    expect(prompt).not.toContain('任务类型参考：');
+  });
+
+  it('sends a message to openclaw agent via the API', async () => {
+    const { res, data } = await fetchJson('/api/openclaw/agent/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'hello',
+        thinking: 'minimal',
+        timeoutSeconds: 2400,
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(data.stdout).toContain('写入完成');
+    expect(sendAgentMessageMock).toHaveBeenCalledWith({
+      sessionId: '',
+      agentId: 'main',
+      message: 'hello',
+      thinking: 'minimal',
+      timeoutSeconds: 2400,
+    });
+  });
+
+  it('returns a server error when openclaw agent command fails', async () => {
+    sendAgentMessageMock.mockResolvedValueOnce({
+      ok: false,
+      code: 1,
+      signal: null,
+      stdout: '',
+      stderr: 'failed',
+    });
+
+    const { res, data } = await fetchJson('/api/openclaw/agent/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'chat-main',
+        message: 'hello',
+      }),
+    });
+
+    expect(res.status).toBe(500);
+    expect(data.error).toBe('OpenClaw agent command failed');
+    expect(data.details.stderr).toBe('failed');
+  });
+
+  it('restarts openclaw gateway via the API', async () => {
+    const { res, data } = await fetchJson('/api/openclaw/gateway/restart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(200);
+    expect(data.stdout).toContain('gateway restarted');
+    expect(restartGatewayMock).toHaveBeenCalled();
+  });
+
+  it('builds an execution reference prompt with common rules and strategy references', () => {
+    const config = readWebuiConfig();
+    const prompt = buildExecutionReferencePrompt({ config, mode: 'dispatch' });
+
+    expect(prompt).toContain('请执行任务 demo-1234');
+    expect(prompt).toContain('report.html（_使用 webpage-designer_）');
+    expect(prompt).toContain(config.executionGuidance.strategies[0].name);
+    expect(prompt).toContain('expectsCompletionMessage: false');
+    expect(prompt).not.toContain('返工说明');
+  });
+
+  it('omits empty task type fields in prompt assembly', () => {
+    const prompt = buildExecutionReferencePrompt({
+      mode: 'dispatch',
+      config: {
+        general: { openclawDefaults: { thinking: 'off', timeoutSeconds: 1800 } },
+        executionGuidance: {
+          template: '{{types}}',
+          common: {},
+          strategies: [
+            {
+              id: 'article_research',
+              name: '文章研究',
+              triggerCondition: '',
+              beforeCreate: '',
+              executionStepsReference: '',
+              openclaw: { timeoutSeconds: 1800 },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(prompt).toContain('1. 文章研究');
+    expect(prompt).not.toContain('未填写');
+    expect(prompt).not.toContain('适用场景');
+    expect(prompt).not.toContain('创建任务前先做什么');
+    expect(prompt).not.toContain('处理方式');
+  });
+
+  it('accepts an authenticated internal dispatch trigger request', async () => {
+    const { res, data } = await fetchJson('/api/internal/dispatch/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ triggerSource: 'task_created' }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(data.ok).toBe(true);
+    expect(schedulerMock.runCycle).toHaveBeenCalledWith('task_created');
+  });
+
+  it('returns runtime information for authenticated internal status checks', async () => {
+    const { res, data } = await fetchJson('/api/internal/runtime');
+
+    expect(res.status).toBe(200);
+    expect(Number.isInteger(data.pid)).toBe(true);
+    expect(data.host).toBe('127.0.0.1');
+    expect(typeof data.port).toBe('number');
+    expect(data.startedAt).toBeTruthy();
+  });
+
+  it('rejects file traversal outside workspace root', async () => {
+    const task = createTask({ title: 'Traversal test' });
+    writeFileSync(join(task.workspace_path, 'note.txt'), 'hello');
+
+    const { res, data } = await fetchJson(`/api/tasks/${task.id}/file?path=../outside.txt`);
+    expect(res.status).toBe(400);
+    expect(data.error).toContain('workspace root');
+  });
+
+  it('serves html reports with restrictive security headers', async () => {
+    const task = createTask({ title: 'HTML report test' });
+    writeFileSync(
+      join(task.workspace_path, 'report.html'),
+      '<!doctype html><html><head><title>unsafe</title></head><body><script>alert(1)</script><h1>report</h1></body></html>',
+    );
+
+    const res = await fetch(`${baseUrl}/api/tasks/${task.id}/open-report`, {
+      headers: { Cookie: sessionCookie },
+    });
+    const html = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-security-policy')).toContain('sandbox');
+    expect(res.headers.get('content-security-policy')).toContain("script-src 'none'");
+    expect(html).toContain('<h1>report</h1>');
+  });
+
+  it('serves interactive html reports with script execution allowed inside sandbox', async () => {
+    const task = createTask({ title: 'Interactive HTML report test' });
+    writeFileSync(
+      join(task.workspace_path, 'report.html'),
+      '<!doctype html><html><head><title>interactive</title></head><body><script>document.body.dataset.ready = "1"</script><h1>report</h1></body></html>',
+    );
+
+    const res = await fetch(`${baseUrl}/api/tasks/${task.id}/open-report?mode=interactive`, {
+      headers: { Cookie: sessionCookie },
+    });
+    const html = await res.text();
+    const csp = res.headers.get('content-security-policy') || '';
+
+    expect(res.status).toBe(200);
+    expect(csp).toContain('sandbox allow-scripts');
+    expect(csp).not.toContain("script-src 'none'");
+    expect(html).toContain('<h1>report</h1>');
+  });
+
+  it('returns config including the resolved data root', async () => {
+    const { res, data } = await fetchJson('/api/config');
+
+    expect(res.status).toBe(200);
+    expect(data.dataRoot).toBe(tmpDir);
+    expect(data.dataRootSource).toBe('AGENT_TASK_HOME');
+    expect(data.version).toBe(packageJson.version);
+    expect(data.runtimeInfo.host).toBe('127.0.0.1');
+  });
+
+  it('returns guidance fields from /api/config', async () => {
+    const { res, data } = await fetchJson('/api/config');
+
+    expect(res.status).toBe(200);
+    expect(data.general.openclawDefaults.timeoutSeconds).toBe(1800);
+    expect(data.chatGuidance.template).toContain('默认就使用 `agent-task`');
+    expect(data.executionGuidance.template).toContain('{{#if repair}}');
+    expect(data.executionGuidance.common.executionApproach).toBeTruthy();
+    expect(Array.isArray(data.executionGuidance.strategies)).toBe(true);
+  });
+
+  it('returns both chat and execution prompt previews', async () => {
+    const chat = await fetchJson('/api/prompts/chat');
+    const execution = await fetchJson('/api/prompts/execution');
+
+    expect(chat.res.status).toBe(200);
+    expect(chat.data.content).toContain('agent-task create --title');
+    expect(execution.res.status).toBe(200);
+    expect(execution.data.content).toContain('请执行任务 demo-1234');
+  });
+
+  it('returns prompt template defaults loaded from docs files', async () => {
+    const { res, data } = await fetchJson('/api/prompts/defaults');
+
+    expect(res.status).toBe(200);
+    expect(data.chat).toBe(readFileSync(join(process.cwd(), 'docs/prompt-templates/agent-onboarding.md'), 'utf-8').trim());
+    expect(data.execution).toBe(readFileSync(join(process.cwd(), 'docs/prompt-templates/agent-execution.md'), 'utf-8').trim());
+  });
+
+  it('returns raw prompt template sections for editing', async () => {
+    const { res, data } = await fetchJson('/api/prompts/sections?type=chat');
+
+    expect(res.status).toBe(200);
+    expect(data.sections[0].content).toContain('默认就使用 `agent-task`');
+    expect(data.sections[1].content).toContain('{{#if hasTask}}');
+  });
+
+  it('renders prompt previews from unsaved config and selected conditions', async () => {
+    const task = createTask({ title: 'preview task', description: 'preview description' });
+    const config = readWebuiConfig();
+    config.executionGuidance.template = [
+      'Task: {{task.title}}',
+      '{{#if repair}}Repair Mode{{/if}}',
+      '{{#if hasFeedback}}Feedback: {{feedback.latestHuman.message}}{{/if}}',
+    ].join('\n');
+
+    const { res, data } = await fetchJson('/api/prompts/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'execution',
+        taskId: task.id,
+        useMockTask: false,
+        mode: 'repair',
+        hasFeedback: true,
+        config,
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(data.content).toContain('Task: preview task');
+    expect(data.content).toContain('Repair Mode');
+    expect(data.content).toContain('请补充证据来源');
+  });
+
+  it('updates OpenClaw defaults through /api/config', async () => {
+    const update = await fetchJson('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        general: {
+          openclawDefaults: {
+            thinking: 'minimal',
+            timeoutSeconds: 2400,
+          },
+        },
+      }),
+    });
+
+    expect(update.res.status).toBe(200);
+    expect(update.data.general.openclawDefaults.thinking).toBe('minimal');
+    expect(update.data.general.openclawDefaults.timeoutSeconds).toBe(2400);
+
+    const next = await fetchJson('/api/config');
+    expect(next.data.general.openclawDefaults.thinking).toBe('minimal');
+    expect(next.data.general.openclawDefaults.timeoutSeconds).toBe(2400);
+  });
+
+  it('returns execution snapshot fields on task detail', async () => {
+    const task = createTask({ title: 'detail execution fields' });
+    const { res, data } = await fetchJson(`/api/tasks/${task.id}`);
+
+    expect(res.status).toBe(200);
+    expect(data.dispatch_status).toBe('idle');
+    expect(data.timeout_seconds).toBe(1800);
+    expect(data.repair_count).toBe(0);
+    expect(data.session_key).toBeNull();
+  });
+
+  it('returns recent system logs', async () => {
+    writeSystemLog('error', 'test-suite', 'Synthetic log entry', { code: 'E_SYNTHETIC' });
+    const { res, data } = await fetchJson('/api/system/logs?limit=20');
+
+    expect(res.status).toBe(200);
+    expect(data.items.some((item) => item.source === 'test-suite' && item.message === 'Synthetic log entry')).toBe(true);
+  });
+
+  it('returns task debug data with run history and related logs', async () => {
+    const task = createTask({ title: 'Debug API task' });
+    const run = createTaskRun(task.id, {
+      kind: 'dispatch',
+      status: 'running',
+      sessionKey: `task-${task.id}`,
+      prompt: 'debug prompt snapshot',
+      timeoutSeconds: 1800,
+      triggerSource: 'task_created',
+      attemptIndex: 1,
+    });
+    writeSystemLog('info', 'scheduler', 'Automatic dispatch started', {
+      taskId: task.id,
+      runId: run.id,
+      sessionKey: run.session_key,
+    });
+    writeSystemLog('info', 'scheduler', 'Another task log', {
+      taskId: 'other1234',
+    });
+
+    const { res, data } = await fetchJson(`/api/tasks/${task.id}/debug`);
+
+    expect(res.status).toBe(200);
+    expect(data.summary.id).toBe(task.id);
+    expect(data.runs).toHaveLength(1);
+    expect(data.runs[0].prompt).toContain('debug prompt snapshot');
+    expect(data.logs.some((item) => item.message === 'Automatic dispatch started')).toBe(true);
+    expect(data.logs.some((item) => item.message === 'Another task log')).toBe(false);
+  });
+});
