@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { resetDb, getBaseDir } from '../lib/db.js';
+import { resetDb, getBaseDir, getDb } from '../lib/db.js';
 import {
   archiveTask,
   commentTask,
@@ -75,6 +75,16 @@ describe('createTask', () => {
     expect(getTask(task.id).type_id).toBe('article_research');
   });
 
+  it('normalizes escaped newlines in description text', () => {
+    const task = createTask({
+      title: '带换行描述',
+      description: '第一段\\n\\n第二段\\r\\n- 列表项',
+    });
+
+    expect(task.description).toBe('第一段\n\n第二段\n- 列表项');
+    expect(getTask(task.id).description).toBe('第一段\n\n第二段\n- 列表项');
+  });
+
   it('rejects unknown type_id values', () => {
     expect(() => createTask({ title: '非法类型', typeId: 'unknown_type' })).toThrow('Invalid type_id');
   });
@@ -144,6 +154,36 @@ describe('status flow', () => {
 
     expect(listTasks()).toEqual([]);
     expect(listTasks({ all: true })).toHaveLength(1);
+  });
+
+  it('normalizes escaped newlines for existing stored descriptions when listing', () => {
+    const db = getDb();
+    db.prepare(`
+      INSERT INTO tasks (
+        id,
+        title,
+        description,
+        status,
+        priority,
+        workspace_path,
+        timeout_seconds,
+        dispatch_status,
+        repair_count,
+        created_at,
+        updated_at
+      )
+      VALUES (?, ?, ?, 'todo', 'medium', ?, 1800, 'idle', 0, ?, ?)
+    `).run(
+      'legacy001',
+      '历史任务',
+      '核心内容\\n\\n第二段',
+      join(tmpDir, 'tasks', 'legacy001'),
+      '2026-04-07T00:00:00.000Z',
+      '2026-04-07T00:00:00.000Z',
+    );
+
+    expect(getTask('legacy001')?.description).toBe('核心内容\n\n第二段');
+    expect(listTasks().find((task) => task.id === 'legacy001')?.description).toBe('核心内容\n\n第二段');
   });
 });
 

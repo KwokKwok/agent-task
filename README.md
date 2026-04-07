@@ -2,9 +2,53 @@
 
 [![NPM version][npm-image]][npm-url]
 
+> 搞这个东西的目的：希望让 OpenClaw 能异步的、产出结构化的东西（比如可以按需产出 markdown 报告、HTML 页面、音频播客等），并有一个 直观的 WebUI 能方便我查看。这样我看到一篇感兴趣的文章，就直接发给 OpenClaw 就行，好了我再去看分析就行。我也可以让它根据对我的了解，自己生成一些探索性的任务自己去执行。理论上也可以让它一直不停的执行任务。
+
 `agent-task` 目前主要面向 OpenClaw 使用，不过它本质上就是个命令行工具，所以理论上哪里都能调用。
 
 它做的事很简单：跟 AI 约定好，任务怎么创建、要怎么执行、要怎么记录中间产物和最终产出；当前默认也会通过 `openclaw agent` 去推进任务执行，并且提供一个 WebUI，方便查看任务和产出。
+
+## 界面预览
+
+### WebUI
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://raw.githubusercontent.com/KwokKwok/agent-task/main/docs/assets/agent-task-webui-homepage.png" alt="WebUI 主页卡片页" width="100%" />
+      <div>主页卡片页</div>
+    </td>
+    <td align="center" width="50%">
+      <img src="https://raw.githubusercontent.com/KwokKwok/agent-task/main/docs/assets/agent-task-webui-detail.png" alt="WebUI 详情页" width="100%" />
+      <div>详情页</div>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://raw.githubusercontent.com/KwokKwok/agent-task/main/docs/assets/agent-task-webui-types.png" alt="任务类型设置弹框" width="100%" />
+      <div>任务类型设置</div>
+    </td>
+    <td align="center" width="50%">
+      <img src="https://raw.githubusercontent.com/KwokKwok/agent-task/main/docs/assets/agent-task-webui-sync.png" alt="同步至 OpenClaw 弹框" width="100%" />
+      <div>同步至 OpenClaw</div>
+    </td>
+  </tr>
+</table>
+
+### 对话中的任务卡片
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://raw.githubusercontent.com/KwokKwok/agent-task/main/docs/assets/agent-task-generate.png" alt="生成任务卡片" width="100%" />
+      <div>生成任务卡片</div>
+    </td>
+    <td align="center" width="50%">
+      <img src="https://raw.githubusercontent.com/KwokKwok/agent-task/main/docs/assets/agent-task-result.png" alt="任务完成结果卡片" width="100%" />
+      <div>任务完成结果卡片</div>
+    </td>
+  </tr>
+</table>
 
 ## 快速使用
 

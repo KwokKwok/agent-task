@@ -460,12 +460,12 @@ export function PromptEditorPane({ config, onSave, saving }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="settings-card flex min-h-0 flex-1 flex-col rounded-[18px] p-4 md:p-5">
+      <div className="flex min-h-0 flex-1 flex-col rounded-[18px]">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <div className="settings-title text-[15px] font-medium">{meta.shortLabel}</div>
-              <div className="settings-card-soft rounded-full px-2.5 py-1 text-[10px] leading-none">
+              <div className="settings-card-soft inline-flex rounded-full px-2.5 py-1 text-[10px] leading-none">
                 {editing ? '编辑中' : '预览'}
               </div>
             </div>

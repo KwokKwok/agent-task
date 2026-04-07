@@ -47,7 +47,7 @@ function SettingsLoadingSkeleton() {
           ))}
         </div>
       </aside>
-      <div className="settings-pane min-h-0 flex-1 space-y-6 px-9 py-8">
+      <div className="settings-pane min-h-0 flex-1 space-y-6 px-10 py-9">
         <Skeleton className="h-8 w-20 rounded-xl" />
         <div className="space-y-5">
           {[0, 1, 2, 3].map((item) => (
@@ -162,12 +162,6 @@ export function SettingsModal({ onClose }) {
     return saveConfig(patch, options);
   }
 
-  const paneTitle = activePane === 'agent-onboarding'
-    ? 'Agent 接入'
-    : activePane === 'task-types'
-      ? '任务类型'
-      : 'Agent 执行';
-
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent
@@ -182,14 +176,8 @@ export function SettingsModal({ onClose }) {
         ) : (
           <div className="settings-pane flex min-h-0 flex-1 flex-row overflow-hidden rounded-[16px]">
             <SettingsNav active={activePane} onChange={setActivePane} onClose={onClose} config={config} />
-            <div className={`settings-pane flex min-h-0 flex-1 flex-col py-5 ${activePane === 'task-types' ? 'overflow-y-auto' : 'overflow-hidden'}`}>
-              <div className={`w-full px-4 ${activePane === 'task-types' ? '' : 'flex min-h-0 flex-1 flex-col'}`}>
-                <div className="settings-header mb-4 flex items-center justify-between gap-4 border-b pb-3 px-4">
-                  <h2 className="settings-title text-[1.06rem] font-normal tracking-[-0.01em]">
-                    {paneTitle}
-                  </h2>
-                </div>
-
+            <div className={`settings-pane flex min-h-0 flex-1 flex-col py-7 ${activePane === 'task-types' ? 'overflow-y-auto' : 'overflow-hidden'}`}>
+              <div className={`w-full px-8 ${activePane === 'task-types' ? '' : 'flex min-h-0 flex-1 flex-col'}`}>
                 {activePane === 'agent-onboarding' ? (
                   <AgentOnboardingPane
                     config={config}

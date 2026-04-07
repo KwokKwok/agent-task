@@ -24,8 +24,8 @@ import {
   Plus,
   Power,
   PowerOff,
+  RefreshCw,
   Trash2,
-  Upload,
   X,
 } from 'lucide-react';
 import { AgentSyncDialog } from './AgentSyncDialog';
@@ -340,16 +340,16 @@ export function TaskTypesSettingsPane({ config, onSave, saving }) {
           type="button"
           onClick={() => setSyncOpen(true)}
           disabled={saving}
-          className="settings-button-secondary h-8 rounded-full px-3 text-xs font-medium"
+          className="settings-button-secondary h-7 rounded-full px-2.5 text-[11px]"
         >
-          <Upload className="h-3.5 w-3.5" />
+          <RefreshCw className="h-3.5 w-3.5" />
           同步至 OpenClaw
         </Button>
         <Button
           type="button"
           onClick={openCreateDialog}
           disabled={saving}
-          className="settings-button-primary h-8 rounded-full px-3 text-xs font-medium"
+          className="settings-button-primary h-7 rounded-full px-2.5 text-[11px]"
         >
           <Plus className="h-3.5 w-3.5" />
           新建

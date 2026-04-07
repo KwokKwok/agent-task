@@ -27,7 +27,10 @@ export function formatRelativeTime(iso?: string | null, now = Date.now()) {
 
   const nowDate = new Date(now);
   const diffMs = nowDate.getTime() - date.getTime();
-  if (diffMs < 0) return formatDateTime(iso);
+  if (diffMs < 0) {
+    if (Math.abs(diffMs) < 60_000) return '刚刚';
+    return formatDateTime(iso);
+  }
 
   const diffSeconds = Math.floor(diffMs / 1000);
   const diffMinutes = Math.floor(diffSeconds / 60);

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { ChevronDown, ExternalLink, Undo2, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Button } from './ui/button';
@@ -173,6 +173,140 @@ function DebugSkeleton() {
   );
 }
 
+const ReportTabContent = memo(function ReportTabContent({
+  reportState,
+  reportError,
+  reportHtml,
+}) {
+  if (reportState === 'loading') {
+    return <ReportSkeleton />;
+  }
+
+  if (reportError) {
+    return (
+      <div className="theme-danger rounded-lg p-4 text-sm">
+        {reportError}
+      </div>
+    );
+  }
+
+  return (
+    <article
+      className="markdown-body rounded-lg bg-[var(--surface-subtle)] px-5 pb-5 pt-[0.5px]"
+      dangerouslySetInnerHTML={{ __html: reportHtml }}
+    />
+  );
+});
+
+const HtmlReportContent = memo(function HtmlReportContent({
+  htmlReportState,
+  htmlLoaded,
+  htmlReportUrl,
+  onLoad,
+}) {
+  if (htmlReportState === 'loading' && !htmlLoaded) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-5 rounded-lg">
+        <div className="flex items-center justify-center gap-1">
+          {[0, 1, 2, 3, 4].map(i => (
+            <motion.div
+              key={i}
+              className="h-8 w-2 rounded-full bg-[var(--accent)]"
+              animate={{
+                scaleY: [0.4, 1, 0.4],
+              }}
+              transition={{
+                duration: 0.8,
+                repeat: Infinity,
+                delay: i * 0.1,
+                ease: 'easeInOut',
+              }}
+            />
+          ))}
+        </div>
+        <span className="text-xs text-[var(--text-muted)]">
+          正在加载 HTML 报告...
+        </span>
+      </div>
+    );
+  }
+
+  if (htmlReportState === 'error') {
+    return (
+      <div className="theme-danger flex flex-1 items-center justify-center rounded-lg text-sm">
+        HTML 报告不可用
+      </div>
+    );
+  }
+
+  if (htmlReportUrl) {
+    return (
+      <iframe
+        src={htmlReportUrl}
+        className="flex-1 rounded-lg"
+        title="HTML Report"
+        sandbox=""
+        referrerPolicy="no-referrer"
+        onLoad={onLoad}
+      />
+    );
+  }
+
+  return (
+    <div className="flex flex-1 items-center justify-center rounded-lg text-sm text-[var(--text-muted)]">
+      切换到 HTML 标签页以加载报告
+    </div>
+  );
+});
+
+const FilesPreviewContent = memo(function FilesPreviewContent({
+  filePreviewState,
+  fileImageData,
+  fileImageUrl,
+  selectedFilePath,
+  fileAudioData,
+  taskId,
+  filePreview,
+}) {
+  if (filePreviewState === 'loading') {
+    return <FilePreviewSkeleton />;
+  }
+
+  if (fileImageData) {
+    return (
+      <div className="flex h-full min-h-[18rem] items-center justify-center">
+        <img
+          src={fileImageUrl}
+          alt={selectedFilePath}
+          className="max-h-full max-w-full rounded-lg object-contain"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  if (fileAudioData) {
+    return (
+      <div className="flex h-full min-h-[16rem] items-center justify-center">
+        <audio
+          controls
+          preload="metadata"
+          src={`/api/tasks/${taskId}/file?path=${encodeURIComponent(selectedFilePath)}`}
+          className="w-full max-w-lg"
+        >
+          你的浏览器不支持音频预览。
+        </audio>
+      </div>
+    );
+  }
+
+  return (
+    <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-main)]">
+      {filePreview}
+    </pre>
+  );
+});
+
 function renderLogMeta(meta) {
   if (!meta || typeof meta !== 'object') return '';
   try {
@@ -290,6 +424,8 @@ export function DetailPanel({
   filePreview,
   filePreviewState,
   fileAudioData,
+  fileImageData,
+  fileImageUrl,
   selectedFilePath,
   onLoadFiles,
   onLoadFilePreview,
@@ -306,6 +442,10 @@ export function DetailPanel({
       setHtmlLoaded(false);
     }
   }, [activeTab]);
+
+  const handleHtmlFrameLoad = useCallback(() => {
+    setHtmlLoaded(true);
+  }, []);
 
   const showPreview = Boolean(selectedFilePath);
   const canReject = task?.status === 'done';
@@ -755,20 +895,11 @@ export function DetailPanel({
               value="report"
               className="min-h-0 flex-1 overflow-auto pr-1"
             >
-              {reportState === 'loading' ? (
-                <ReportSkeleton />
-              ) : null}
-              {reportError ? (
-                <div className="theme-danger rounded-lg p-4 text-sm">
-                  {reportError}
-                </div>
-              ) : null}
-              {!reportError && reportState !== 'loading' ? (
-                <article
-                  className="markdown-body rounded-lg bg-[var(--surface-subtle)] px-5 pb-5 pt-[0.5px]"
-                  dangerouslySetInnerHTML={{ __html: reportHtml }}
-                />
-              ) : null}
+              <ReportTabContent
+                reportState={reportState}
+                reportError={reportError}
+                reportHtml={reportHtml}
+              />
             </TabsContent>
 
             <TabsContent
@@ -776,47 +907,12 @@ export function DetailPanel({
               className="min-h-0 flex-1 overflow-hidden"
             >
               <div className="flex h-full flex-col gap-3">
-                {htmlReportState === 'loading' && !htmlLoaded ? (
-                  <div className="flex flex-1 flex-col items-center justify-center gap-5 rounded-lg">
-                    <div className="flex items-center justify-center gap-1">
-                      {[0, 1, 2, 3, 4].map(i => (
-                        <motion.div
-                          key={i}
-                          className="h-8 w-2 rounded-full bg-[var(--accent)]"
-                          animate={{
-                            scaleY: [0.4, 1, 0.4],
-                          }}
-                          transition={{
-                            duration: 0.8,
-                            repeat: Infinity,
-                            delay: i * 0.1,
-                            ease: 'easeInOut',
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-xs text-[var(--text-muted)]">
-                      正在加载 HTML 报告...
-                    </span>
-                  </div>
-                ) : htmlReportState === 'error' ? (
-                  <div className="theme-danger flex flex-1 items-center justify-center rounded-lg text-sm">
-                    HTML 报告不可用
-                  </div>
-                ) : htmlReportUrl ? (
-                  <iframe
-                    src={htmlReportUrl}
-                    className="flex-1 rounded-lg"
-                    title="HTML Report"
-                    sandbox=""
-                    referrerPolicy="no-referrer"
-                    onLoad={() => setHtmlLoaded(true)}
-                  />
-                ) : (
-                  <div className="flex flex-1 items-center justify-center rounded-lg text-sm text-[var(--text-muted)]">
-                    切换到 HTML 标签页以加载报告
-                  </div>
-                )}
+                <HtmlReportContent
+                  htmlReportState={htmlReportState}
+                  htmlLoaded={htmlLoaded}
+                  htmlReportUrl={htmlReportUrl}
+                  onLoad={handleHtmlFrameLoad}
+                />
               </div>
             </TabsContent>
 
@@ -889,17 +985,15 @@ export function DetailPanel({
                 </aside>
                 {showPreview ? (
                   <section className="min-h-0 overflow-auto rounded-lg bg-[var(--surface-subtle)] p-4">
-                    {filePreviewState === 'loading' ? (
-                      <FilePreviewSkeleton />
-                    ) : fileAudioData ? (
-                      <AudioPlayer
-                        src={`/api/tasks/${task.id}/file?path=${encodeURIComponent(selectedFilePath)}`}
-                      />
-                    ) : (
-                      <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-main)]">
-                        {filePreview}
-                      </pre>
-                    )}
+                    <FilesPreviewContent
+                      filePreviewState={filePreviewState}
+                      fileImageData={fileImageData}
+                      fileImageUrl={fileImageUrl}
+                      selectedFilePath={selectedFilePath}
+                      fileAudioData={fileAudioData}
+                      taskId={task.id}
+                      filePreview={filePreview}
+                    />
                   </section>
                 ) : null}
               </div>

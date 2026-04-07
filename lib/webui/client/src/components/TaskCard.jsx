@@ -2,10 +2,12 @@ import { Badge } from './ui/badge.jsx';
 import { TimeStamp } from './TimeStamp.jsx';
 import { cn } from '../lib/utils';
 import { getStatusLabel, getStatusMeta } from '../lib/helpers.js';
+import { markdownToPlainTextPreview } from '../lib/markdown-preview.js';
 import { Play } from 'lucide-react';
 
 export function TaskCard({ task, isActive, onClick, now, panelOpen }) {
   const meta = getStatusMeta(task.status);
+  const descriptionPreview = markdownToPlainTextPreview(task.description);
   return (
     <article
       className={cn(
@@ -33,15 +35,15 @@ export function TaskCard({ task, isActive, onClick, now, panelOpen }) {
           </span>
         )}
       </h3>
-      <p className="mb-3 line-clamp-2 text-xs text-[var(--text-soft)]">
-        {task.description || '(无描述)'}
+      <p className="mb-3 line-clamp-2 whitespace-pre-line text-xs text-[var(--text-soft)]">
+        {descriptionPreview || '(无描述)'}
       </p>
 
       <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
         <Badge tone={meta.tone}>{getStatusLabel(task.status)}</Badge>
         <span className="font-['Space_Grotesk',sans-serif]">{task.id}</span>
         <span className="ml-auto">
-          <TimeStamp value={task.updated_at} now={now} />
+          <TimeStamp value={task.created_at} now={now} />
         </span>
       </div>
     </article>

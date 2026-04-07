@@ -17,7 +17,7 @@ vi.mock('../lib/openclaw.js', async () => {
   };
 });
 
-import { resetDb } from '../lib/db.js';
+import { getDb, resetDb } from '../lib/db.js';
 import { buildChatAgentPrompt, buildExecutionReferencePrompt } from '../lib/prompt-builders.js';
 import { createTask, setStatus } from '../lib/task.js';
 import { createTaskRun } from '../lib/task-run.js';
@@ -117,6 +117,91 @@ describe('webui api boundaries', () => {
 
     expect(res.status).toBe(200);
     expect(data.items.some((item) => item.id === task.id && item.title === 'API smoke task')).toBe(true);
+  });
+
+  it('defaults task listing to created_at desc instead of updated_at desc', async () => {
+    const older = createTask({ title: '较早任务' });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const newer = createTask({ title: '较新任务' });
+
+    setStatus(older.id, 'in_progress');
+
+    const { res, data } = await fetchJson('/api/tasks');
+
+    expect(res.status).toBe(200);
+    expect(data.sortBy).toBe('created_at');
+    expect(data.order).toBe('desc');
+    expect(data.items.findIndex((item) => item.id === newer.id)).toBeLessThan(
+      data.items.findIndex((item) => item.id === older.id),
+    );
+  });
+
+  it('respects created_at ordering even when updated_at is newer on an older task', async () => {
+    const db = getDb();
+    db.prepare(`
+      INSERT INTO tasks (
+        id,
+        title,
+        description,
+        type_id,
+        status,
+        priority,
+        workspace_path,
+        timeout_seconds,
+        dispatch_status,
+        repair_count,
+        created_at,
+        updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'oldtask1',
+      '旧任务',
+      null,
+      null,
+      'todo',
+      'medium',
+      '/tmp/oldtask1',
+      1800,
+      'idle',
+      0,
+      '2026-04-07T00:00:00.000Z',
+      '2026-04-07T23:59:59.000Z',
+    );
+    db.prepare(`
+      INSERT INTO tasks (
+        id,
+        title,
+        description,
+        type_id,
+        status,
+        priority,
+        workspace_path,
+        timeout_seconds,
+        dispatch_status,
+        repair_count,
+        created_at,
+        updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'newtask1',
+      '新任务',
+      null,
+      null,
+      'todo',
+      'medium',
+      '/tmp/newtask1',
+      1800,
+      'idle',
+      0,
+      '2026-04-07T12:00:00.000Z',
+      '2026-04-07T12:00:01.000Z',
+    );
+
+    const { data } = await fetchJson('/api/tasks');
+
+    expect(data.items.slice(0, 2).map((item) => item.id)).toEqual(['newtask1', 'oldtask1']);
   });
 
   it('updates record status through the API', async () => {

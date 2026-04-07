@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
-import { PencilLine, RotateCcw, Save, Upload, X } from 'lucide-react';
+import { PencilLine, RefreshCw, RotateCcw, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { AgentSyncDialog } from './AgentSyncDialog';
+import { OpenClawAgentActionDialog } from './OpenClawAgentActionDialog';
 
 export function AgentOnboardingPane({ config, onSave, saving }) {
   const [preview, setPreview] = useState('');
   const [previewLoading, setPreviewLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
-  const [syncOpen, setSyncOpen] = useState(false);
+  const [openclawActionMode, setOpenclawActionMode] = useState(null);
   const template = config.chatGuidance?.template || '';
 
   useEffect(() => {
@@ -67,25 +67,22 @@ export function AgentOnboardingPane({ config, onSave, saving }) {
     }
   }
 
-  async function handleSyncClick() {
-    setSyncOpen(true);
-  }
-
   return (
     <>
-      <AgentSyncDialog
-        open={syncOpen}
+      <OpenClawAgentActionDialog
+        open={Boolean(openclawActionMode)}
+        mode={openclawActionMode || 'connect'}
         config={config}
-        onClose={() => setSyncOpen(false)}
+        onClose={() => setOpenclawActionMode(null)}
       />
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="settings-card flex min-h-0 flex-1 flex-col rounded-[18px] p-4 md:p-5">
+        <div className="flex min-h-0 flex-1 flex-col rounded-[18px]">
           <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <div className="settings-title text-[15px] font-medium">Onboarding 提示词</div>
-                <div className="settings-card-soft rounded-full px-2.5 py-1 text-[10px] leading-none">
+                <div className="settings-card-soft inline-flex rounded-full px-2.5 py-1 text-[10px] leading-none">
                   {editing ? '编辑中' : '预览'}
                 </div>
               </div>
@@ -106,7 +103,7 @@ export function AgentOnboardingPane({ config, onSave, saving }) {
                     variant="outline"
                     onClick={() => void handleReset()}
                     disabled={saving}
-                    className="settings-button-secondary h-8 rounded-full px-3 text-xs"
+                    className="settings-button-secondary h-7 rounded-full px-2.5 text-[11px]"
                   >
                     <RotateCcw className="h-3.5 w-3.5 mr-1" />
                     重置为默认
@@ -116,7 +113,7 @@ export function AgentOnboardingPane({ config, onSave, saving }) {
                     variant="outline"
                     onClick={handleCancelEdit}
                     disabled={saving}
-                    className="settings-button-secondary h-8 rounded-full px-3 text-xs"
+                    className="settings-button-secondary h-7 rounded-full px-2.5 text-[11px]"
                   >
                     <X className="h-3.5 w-3.5 mr-1" />
                     取消
@@ -125,7 +122,7 @@ export function AgentOnboardingPane({ config, onSave, saving }) {
                     type="button"
                     onClick={handleSave}
                     disabled={saving}
-                    className="settings-button-primary h-8 rounded-full px-3 text-xs"
+                    className="settings-button-primary h-7 rounded-full px-2.5 text-[11px]"
                   >
                     <Save className="h-3.5 w-3.5 mr-1" />
                     {saving ? '保存中...' : '保存'}
@@ -135,17 +132,26 @@ export function AgentOnboardingPane({ config, onSave, saving }) {
                 <>
                   <Button
                     type="button"
-                    onClick={handleSyncClick}
-                    className="settings-button-primary h-8 rounded-full px-3 text-xs"
+                    onClick={() => setOpenclawActionMode('connect')}
+                    className="settings-button-primary h-7 rounded-full px-2.5 text-[11px]"
                   >
-                    <Upload className="h-3.5 w-3.5 mr-1" />
+                    <RefreshCw className="h-3.5 w-3.5 mr-1" />
                     同步至 OpenClaw
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
+                    onClick={() => setOpenclawActionMode('disconnect')}
+                    className="settings-button-secondary h-7 rounded-full px-2.5 text-[11px]"
+                  >
+                    <X className="h-3.5 w-3.5 mr-1" />
+                    取消 OpenClaw 接入
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => setEditing(true)}
-                    className="h-8 rounded-full px-3 text-xs"
+                    className="settings-button-secondary h-7 rounded-full px-2.5 text-[11px]"
                   >
                     <PencilLine className="h-3.5 w-3.5 mr-1" />
                     编辑

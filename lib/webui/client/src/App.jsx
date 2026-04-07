@@ -47,6 +47,8 @@ export default function App() {
     filePreview: tm.filePreview,
     filePreviewState: tm.filePreviewState,
     fileAudioData: tm.fileAudioData,
+    fileImageData: tm.fileImageData,
+    fileImageUrl: tm.fileImageUrl,
     selectedFilePath: tm.selectedFilePath,
     onLoadFiles: tm.onLoadFiles,
     onLoadFilePreview: tm.onLoadFilePreview,

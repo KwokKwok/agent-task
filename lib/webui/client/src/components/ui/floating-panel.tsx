@@ -136,7 +136,7 @@ export function FloatingPanelTrigger({
     <motion.button
       ref={triggerRef}
       className={cn(
-        "inline-flex items-center gap-1 justify-center rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+        "inline-flex items-center gap-1 justify-center rounded-md px-2.5 py-1 text-[10px] transition-colors",
         className
       )}
       onClick={handleClick}

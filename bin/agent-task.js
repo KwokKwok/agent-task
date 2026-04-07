@@ -6,7 +6,7 @@ const program = new Command();
 program
   .name('agent-task')
   .description('Agent Task CLI')
-  .version('0.1.0');
+  .version('0.2.0');
 
 // 动态加载所有命令
 const commands = [
