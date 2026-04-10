@@ -2,7 +2,7 @@ import { Bot, Database, ListChecks, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ITEMS = [
-  { id: 'agent-onboarding', label: 'Agent 接入', icon: Sparkles },
+  { id: 'agent-intake-skill', label: 'Agent 接入', icon: Sparkles },
   { id: 'prompts', label: 'Agent 执行', icon: Bot },
   { id: 'task-types', label: '任务类型', icon: ListChecks },
 ];
@@ -21,7 +21,7 @@ export function SettingsNav({ active, onChange, onClose, config }) {
       </div>
 
       <nav className="flex-1 space-y-1 px-2.5 pb-4">
-        {ITEMS.map((item) => {
+        {ITEMS.map(item => {
           const Icon = item.icon;
           const isActive = active === item.id;
 

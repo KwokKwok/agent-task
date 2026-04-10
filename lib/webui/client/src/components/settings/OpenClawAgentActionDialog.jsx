@@ -3,7 +3,6 @@ import { RefreshCw, TerminalSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AsyncStepsDialog } from '@/components/shared/AsyncStepsDialog';
 
-const COMPLETION_PHRASE = '写入完成';
 const ACTION_STEP_ID = 'apply_action';
 const RESTART_STEP_ID = 'restart_gateway';
 const MOCK_SCENARIOS = new Set(['success', 'sync-error', 'restart-error']);
@@ -12,14 +11,14 @@ const ACTION_CONFIG = {
   connect: {
     dialogTitle: '同步至 OpenClaw',
     dialogDescription:
-      '通过同步提示词，让 OpenClaw 知道应该如何使用 Agent Task 来管理任务。',
-    actionStepTitle: '发送提示词到 OpenClaw',
+      '将渲染后的 agent-task-intake skill 写入 OpenClaw 的 skills 目录，让 Agent 接入直接基于这个 skill 生效。',
+    actionStepTitle: '写入 agent-task-intake SKILL',
     actionRunningDescription:
-      '将最新 onboarding 提示词写入 OpenClaw，通常需要 1 分钟左右。',
+      '将最新 skill 写入 OpenClaw，通常只需要几秒钟。',
     actionCompletedDescription:
-      '已将最新 Onboarding 提示词同步给 OpenClaw。新的接入规则已经准备就绪。',
+      '已将最新 agent-task-intake skill 写入 OpenClaw。新的接入规则已经准备就绪。',
     actionErrorDescription: '同步步骤执行失败。请查看异常详情后重新发起同步。',
-    actionPendingDescription: '准备把最新 onboarding 提示词同步给 OpenClaw。',
+    actionPendingDescription: '准备把最新 skill 写入 OpenClaw。',
     actionRetryLabel: '重试同步',
     restartConfirmDescription:
       '最新接入内容已同步。你可以现在重启一次，让新规则立即生效。',
@@ -50,20 +49,20 @@ const ACTION_CONFIG = {
         新开一个对话，然后发送“生成一些任务吧”试试吧。
       </>
     ),
-    mockActionError: 'Mock: onboarding 写入失败，OpenClaw 未返回完成确认。',
+    mockActionError: 'Mock: agent-task-intake SKILL 写入失败。',
   },
   disconnect: {
     dialogTitle: '取消 OpenClaw 接入',
     dialogDescription:
-      '通过移除 AGENTS.md 中与 Agent Task 相关的内容，让 OpenClaw 停止使用 Agent Task。',
-    actionStepTitle: '移除 agent-task 内容',
+      '通过移除 OpenClaw skills 目录下的 agent-task-intake skill，让 OpenClaw 停止通过该 skill 接入 Agent Task。',
+    actionStepTitle: '移除 agent-task-intake SKILL',
     actionRunningDescription:
-      '让 OpenClaw 从 AGENTS.md 中移除所有与 agent-task 相关的内容，通常需要 1 分钟左右。',
+      '从 OpenClaw 中移除 agent-task-intake skill，通常只需要几秒钟。',
     actionCompletedDescription:
-      '已要求 OpenClaw 移除 AGENTS.md 中所有与 agent-task 相关的内容。',
+      '已移除 OpenClaw 中的 agent-task-intake skill。',
     actionErrorDescription: '取消接入步骤执行失败。请查看异常详情后重新发起。',
     actionPendingDescription:
-      '准备让 OpenClaw 从 AGENTS.md 中移除所有与 agent-task 相关的内容。',
+      '准备移除 OpenClaw 中的 agent-task-intake skill。',
     actionRetryLabel: '重试取消',
     restartConfirmDescription:
       '取消接入内容已处理完成。你可以现在重启一次，让变更立即生效。',
@@ -79,7 +78,7 @@ const ACTION_CONFIG = {
     completedBodyAfterRestart: '如需重新启用 Agent Task，可回到这里再次同步至 OpenClaw。',
     completedBodyBeforeRestart:
       '重启 OpenClaw 后，如需重新启用 Agent Task，可回到这里再次同步至 OpenClaw。',
-    mockActionError: 'Mock: AGENTS.md 中的 agent-task 内容移除失败。',
+    mockActionError: 'Mock: agent-task-intake SKILL 移除失败。',
   },
 };
 
@@ -113,8 +112,8 @@ function buildMockActionResponse(mode) {
   return {
     stdout:
       mode === 'disconnect'
-        ? ['检查 AGENTS.md', '移除所有 agent-task 相关段落', COMPLETION_PHRASE].join('\n')
-        : ['检查 AGENTS.md', '定位 agent-task onboarding 区段', COMPLETION_PHRASE].join('\n'),
+        ? ['检查 OpenClaw skills 目录', '移除 agent-task-intake skill'].join('\n')
+        : ['检查 OpenClaw skills 目录', '写入 agent-task-intake/SKILL.md'].join('\n'),
     stderr: '',
   };
 }
@@ -127,57 +126,6 @@ function buildMockRestartResponse() {
     ].join('\n'),
     stderr: '',
   };
-}
-
-function buildAgentInstallMessage(onboardingPrompt) {
-  const normalizedPrompt = String(onboardingPrompt || '').trim();
-  return [
-    '你现在需要为自己完成一次 `agent-task` 接入。',
-    '',
-    '请检查你当前的 `AGENTS.md`，并确保其中完整保存下面这段 `agent-task` onboarding 内容。',
-    '',
-    '执行要求：',
-    '- 如果 `AGENTS.md` 中还没有这段 onboarding，就将它完整追加进去。',
-    '- 如果已经存在旧版本或不一致版本，请把那一段完整更新为下面这段最新内容。',
-    '- 不要摘要、不要改写、不要省略，必须完整保留下面的原文。',
-    '- 不要改动 `AGENTS.md` 中与 `agent-task` 无关的其他内容。',
-    `- 完成写入后，请只回复：${COMPLETION_PHRASE}`,
-    '',
-    '下面是必须完整写入的原文。不要把标记行本身写入 `AGENTS.md`，只写入标记之间的内容：',
-    '',
-    '<<<AGENT_TASK_ONBOARDING_START>>>',
-    normalizedPrompt,
-    '<<<AGENT_TASK_ONBOARDING_END>>>',
-  ].join('\n');
-}
-
-function buildAgentDisconnectMessage() {
-  return [
-    '你现在需要为自己取消一次 `agent-task` 接入。',
-    '',
-    '请检查你当前的 `AGENTS.md`，并移除其中所有与 `agent-task` 相关的内容。',
-    '',
-    '执行要求：',
-    '- 删除所有与 `agent-task` 有关的 onboarding、说明、约束、引用和示例。',
-    '- 如果相关内容分散在多处，请全部移除。',
-    '- 不要改动 `AGENTS.md` 中与 `agent-task` 无关的其他内容。',
-    '- 如果已经没有任何相关内容，不要新增任何内容。',
-    `- 完成写入后，请只回复：${COMPLETION_PHRASE}`,
-  ].join('\n');
-}
-
-function hasCompletionAck(result) {
-  const haystack = `${result?.stdout || ''}\n${result?.stderr || ''}`;
-  return haystack.includes(COMPLETION_PHRASE);
-}
-
-async function buildActionMessage(mode) {
-  if (mode === 'disconnect') {
-    return buildAgentDisconnectMessage();
-  }
-
-  const promptData = await fetchJson('/api/prompts/chat');
-  return buildAgentInstallMessage(promptData.content);
 }
 
 function buildActionSteps({
@@ -348,30 +296,19 @@ export function OpenClawAgentActionDialog({
           throw new Error(actionConfig.mockActionError);
         }
 
-        const response = buildMockActionResponse(mode);
-        updateStepResult(ACTION_STEP_ID, response);
-        updateStepStatus(ACTION_STEP_ID, 'completed');
-        setPhase('restart-confirm');
-        return;
-      }
+      const response = buildMockActionResponse(mode);
+      updateStepResult(ACTION_STEP_ID, response);
+      updateStepStatus(ACTION_STEP_ID, 'completed');
+      setPhase('restart-confirm');
+      return;
+    }
 
-      const message = await buildActionMessage(mode);
-      const response = await fetchJson('/api/openclaw/agent/message', {
-        method: 'POST',
+      const response = await fetchJson('/api/openclaw/skills/agent-task-intake', {
+        method: mode === 'disconnect' ? 'DELETE' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message,
-          thinking: config.general?.openclawDefaults?.thinking || 'off',
-          timeoutSeconds:
-            config.general?.openclawDefaults?.timeoutSeconds || 1800,
-        }),
       });
 
       updateStepResult(ACTION_STEP_ID, response);
-
-      if (!hasCompletionAck(response)) {
-        throw new Error(`Agent 没有明确回复“${COMPLETION_PHRASE}”`);
-      }
 
       if (runTokenRef.current !== runToken) return;
       updateStepStatus(ACTION_STEP_ID, 'completed');

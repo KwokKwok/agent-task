@@ -109,9 +109,9 @@ pnpm web:dev
 
 ## 提示词和任务类型
 
-设置页里可以直接改 onboarding prompt、execution prompt 和任务类型。
+设置页里可以直接改 intake SKILL 模板、execution prompt 和任务类型。
 
-- onboarding prompt：主要会写进 `AGENTS.md`，用来告诉 OpenClaw 什么时候该创建任务、创建时要带哪些信息
+- intake SKILL：主要会渲染后写进 OpenClaw 的 `skills/agent-task-intake/SKILL.md`，用来告诉 OpenClaw 什么时候该创建任务、创建时要带哪些信息
 - execution prompt：是在任务真正执行时给 Agent 的要求，主要约定怎么推进任务、怎么产出交付物、怎么处理反馈（目前要求产出`report.md`、`report.html`、`report.mp3`，以及通过飞书卡片消息通知用户，这都可以修改，产物要求也可以维护在任务类型中）
 - 任务类型：也可以在设置里维护，会影响执行时看到的类型参考
 
@@ -124,7 +124,7 @@ pnpm web:dev
 - 约定一些默认交付物，比如 `report.md`，按约定的来就可以在 WebUI 里进行查看
 - 记录 feedback / 返工过程
 - 在 WebUI 里看任务、文件、报告、反馈
-- 配置 onboarding prompt、execution prompt、任务类型
+- 配置 intake SKILL 模板、execution prompt、任务类型
 - 会自动调度任务
 
 比较适合：

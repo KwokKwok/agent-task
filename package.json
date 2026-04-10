@@ -1,12 +1,30 @@
 {
   "name": "@kwokkwok/agent-task",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Turn AI work into trackable tasks with workspaces, deliverables, feedback, and WebUI review.",
   "type": "module",
   "bin": {
     "agent-task": "./bin/agent-task.js"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KwokKwok/agent-task.git"
+  },
+  "homepage": "https://github.com/KwokKwok/agent-task#readme",
+  "bugs": {
+    "url": "https://github.com/KwokKwok/agent-task/issues"
+  },
+  "keywords": [
+    "agent",
+    "task",
+    "task-manager",
+    "ai-agent",
+    "cli",
+    "webui",
+    "workspace",
+    "openclaw"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -18,6 +36,7 @@
     "lib/feedback.js",
     "lib/format.js",
     "lib/openclaw-dispatch.js",
+    "lib/openclaw-skill.js",
     "lib/openclaw.js",
     "lib/prompt-builders.js",
     "lib/prompt-template-store.js",
@@ -37,7 +56,7 @@
     "lib/webui/token-store.js",
     "lib/workspace.js",
     "docs/prompt-templates/agent-execution.md",
-    "docs/prompt-templates/agent-onboarding.md",
+    "docs/prompt-templates/agent-intake-skill.md",
     "LICENSE",
     "README.md"
   ],
@@ -49,8 +68,8 @@
     "web:build": "vite build --config lib/webui/client/vite.config.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0",
-    "commander": "^13.0.0"
+    "better-sqlite3": "^11.10.0",
+    "commander": "^13.1.0"
   },
   "devDependencies": {
     "@base-ui/react": "^1.3.0",
@@ -78,8 +97,8 @@
     "react-dom": "^19.1.1",
     "shadcn": "^4.1.2",
     "sonner": "^2.0.7",
-    "tailwindcss": "^4.1.13",
     "tailwind-merge": "^3.3.1",
+    "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",
     "vite": "^7.1.3",
     "vitest": "^3.0.0"

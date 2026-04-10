@@ -42,7 +42,7 @@ function SettingsLoadingSkeleton() {
       <aside className="settings-sidebar flex h-full w-[220px] shrink-0 flex-col px-3 py-4">
         <Skeleton className="mb-6 h-9 w-9 rounded-full" />
         <div className="space-y-1.5">
-          {[0, 1, 2, 3].map((item) => (
+          {[0, 1, 2, 3].map(item => (
             <Skeleton key={item} className="h-11 w-full rounded-[10px]" />
           ))}
         </div>
@@ -50,7 +50,7 @@ function SettingsLoadingSkeleton() {
       <div className="settings-pane min-h-0 flex-1 space-y-6 px-10 py-9">
         <Skeleton className="h-8 w-20 rounded-xl" />
         <div className="space-y-5">
-          {[0, 1, 2, 3].map((item) => (
+          {[0, 1, 2, 3].map(item => (
             <div key={item} className="space-y-2">
               <Skeleton className="h-4 w-24 rounded-full" />
               <Skeleton className="h-11 w-full rounded-[10px]" />
@@ -86,8 +86,9 @@ function mergeConfigPatch(current, patch) {
                 ...patch.executionGuidance.common,
               }
             : current.executionGuidance?.common,
-          strategies: patch.executionGuidance.strategies
-            ?? current.executionGuidance?.strategies,
+          strategies:
+            patch.executionGuidance.strategies ??
+            current.executionGuidance?.strategies,
         }
       : current.executionGuidance,
     chatGuidance: patch.chatGuidance
@@ -100,8 +101,13 @@ function mergeConfigPatch(current, patch) {
 }
 
 export function SettingsModal({ onClose }) {
-  const [activePane, setActivePane] = useState('agent-onboarding');
-  const [config, setConfig] = useState({ host: '', port: 3333, publicUrl: '', dataRoot: '' });
+  const [activePane, setActivePane] = useState('agent-intake-skill');
+  const [config, setConfig] = useState({
+    host: '',
+    port: 3333,
+    publicUrl: '',
+    dataRoot: '',
+  });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -146,7 +152,8 @@ export function SettingsModal({ onClose }) {
       const message = err.message || errorMessage;
       setError(message);
       toast.error(errorMessage, {
-        description: err.message && err.message !== errorMessage ? err.message : undefined,
+        description:
+          err.message && err.message !== errorMessage ? err.message : undefined,
       });
       return null;
     } finally {
@@ -155,7 +162,7 @@ export function SettingsModal({ onClose }) {
   }
 
   function handleChange(patch) {
-    setConfig((prev) => mergeConfigPatch(prev, patch));
+    setConfig(prev => mergeConfigPatch(prev, patch));
   }
 
   function handleSave(patch, options) {
@@ -163,10 +170,13 @@ export function SettingsModal({ onClose }) {
   }
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent
-        className="settings-dialog h-[min(86vh,820px)] gap-0 overflow-hidden p-0"
-      >
+    <Dialog
+      open
+      onOpenChange={open => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="settings-dialog h-[min(86vh,820px)] gap-0 overflow-hidden p-0">
         <DialogTitle className="sr-only">设置</DialogTitle>
         <DialogDescription className="sr-only">
           配置 WebUI 常规参数、提示词模板和任务类型。
@@ -175,10 +185,19 @@ export function SettingsModal({ onClose }) {
           <SettingsLoadingSkeleton />
         ) : (
           <div className="settings-pane flex min-h-0 flex-1 flex-row overflow-hidden rounded-[16px]">
-            <SettingsNav active={activePane} onChange={setActivePane} onClose={onClose} config={config} />
-            <div className={`settings-pane flex min-h-0 flex-1 flex-col py-7 ${activePane === 'task-types' ? 'overflow-y-auto' : 'overflow-hidden'}`}>
-              <div className={`w-full px-8 ${activePane === 'task-types' ? '' : 'flex min-h-0 flex-1 flex-col'}`}>
-                {activePane === 'agent-onboarding' ? (
+            <SettingsNav
+              active={activePane}
+              onChange={setActivePane}
+              onClose={onClose}
+              config={config}
+            />
+            <div
+              className={`settings-pane flex min-h-0 flex-1 flex-col py-7 ${activePane === 'task-types' ? 'overflow-y-auto' : 'overflow-hidden'}`}
+            >
+              <div
+                className={`w-full px-8 ${activePane === 'task-types' ? '' : 'flex min-h-0 flex-1 flex-col'}`}
+              >
+                {activePane === 'agent-intake-skill' ? (
                   <AgentOnboardingPane
                     config={config}
                     onSave={handleSave}

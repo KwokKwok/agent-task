@@ -72,7 +72,7 @@ describe('webui config store', () => {
     expect(config.general.openclawDefaults.timeoutSeconds).toBe(1800);
     expect(config.general.openclawDefaults.thinking).toBe('off');
     expect(config.chatGuidance.template).toBe(
-      readFileSync(join(process.cwd(), 'docs/prompt-templates/agent-onboarding.md'), 'utf-8').trim(),
+      readFileSync(join(process.cwd(), 'docs/prompt-templates/agent-intake-skill.md'), 'utf-8').trim(),
     );
     expect(config.executionGuidance.template).toBe(
       readFileSync(join(process.cwd(), 'docs/prompt-templates/agent-execution.md'), 'utf-8').trim(),

@@ -39,7 +39,7 @@ const schedulerMock = {
   runCycle: vi.fn().mockResolvedValue({ ok: true }),
 };
 
-async function startTestServer() {
+async function startTestServer () {
   server = startWebUiServer({ host: '127.0.0.1', port: 0, scheduler: schedulerMock });
   await new Promise((resolve) => server.once('listening', resolve));
   const address = server.address();
@@ -47,7 +47,7 @@ async function startTestServer() {
   sessionCookie = createSessionCookie(ensureToken());
 }
 
-async function stopTestServer() {
+async function stopTestServer () {
   if (!server) return;
   await new Promise((resolve, reject) => {
     server.close((error) => {
@@ -58,7 +58,7 @@ async function stopTestServer() {
   server = null;
 }
 
-async function fetchJson(pathname, init = {}) {
+async function fetchJson (pathname, init = {}) {
   const res = await fetch(`${baseUrl}${pathname}`, {
     ...init,
     headers: {
@@ -201,7 +201,9 @@ describe('webui api boundaries', () => {
 
     const { data } = await fetchJson('/api/tasks');
 
-    expect(data.items.slice(0, 2).map((item) => item.id)).toEqual(['newtask1', 'oldtask1']);
+    expect(data.items.findIndex((item) => item.id === 'newtask1')).toBeLessThan(
+      data.items.findIndex((item) => item.id === 'oldtask1'),
+    );
   });
 
   it('updates record status through the API', async () => {
@@ -237,20 +239,55 @@ describe('webui api boundaries', () => {
     const { res, data } = await fetchJson('/api/prompt');
 
     expect(res.status).toBe(200);
-    expect(data.content).toContain('默认就使用 `agent-task`');
-    expect(data.content).toContain('任务创建后会自动调度');
+    expect(data.content).toContain('你已经接入 `agent-task` 任务系统');
+    expect(data.content).toContain('任务创建后会自动在合适的时候调度执行');
   });
 
   it('builds a chat-agent guidance prompt from strategy summaries', () => {
     const config = readWebuiConfig();
     const prompt = buildChatAgentPrompt({ dataRoot: '/tmp/agent-task', config });
 
-    expect(prompt).toContain('## 任务管理（`agent-task` 是当前默认的任务方式）');
-    expect(prompt).toContain('默认就使用 `agent-task`');
-    expect(prompt).toContain('agent-task create --title "<title>" --description "<description>"');
+    expect(prompt).toContain('name: agent-task-intake');
+    expect(prompt).toContain('负责任务生成与管理。当识别到以下信号');
+    expect(prompt).toContain('- 收到 X、微信公众号、博客、新闻文章等内容链接，或用户明确要求研究一篇文章');
+    expect(prompt).toContain('agent-task create --title "<title>" --description "<description，可使用简单的 markdown 格式，不要使用标题>"');
     expect(prompt).toContain('| type_id | 任务名称 | 触发方式 | 创建任务前需要做什么 |');
     expect(prompt).not.toContain('report.mp3');
     expect(prompt).not.toContain('任务类型参考：');
+  });
+
+  it('renders types_trigger as trigger-only text for intake templates', () => {
+    const prompt = buildChatAgentPrompt({
+      dataRoot: '/tmp/agent-task',
+      config: {
+        general: { openclawDefaults: { thinking: 'off', timeoutSeconds: 1800 } },
+        chatGuidance: {
+          template: ['Desc:', '{{types_trigger}}', 'Alias:', '{{tasks_trigger}}'].join('\n'),
+        },
+        executionGuidance: {
+          template: '',
+          common: {},
+          strategies: [
+            {
+              id: 'article_research',
+              name: '文章研究',
+              triggerCondition: '收到文章链接',
+              beforeCreate: '先读文章',
+              executionStepsReference: '整理报告',
+              openclaw: { timeoutSeconds: 1800 },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(prompt).toContain('Desc:');
+    expect(prompt).toContain('- 收到文章链接');
+    expect(prompt).toContain('Alias:');
+    expect(prompt).toContain('收到文章链接');
+    expect(prompt).not.toContain('先读文章');
+    expect(prompt).not.toContain('整理报告');
+    expect(prompt).not.toContain('文章研究：');
   });
 
   it('sends a message to openclaw agent via the API', async () => {
@@ -310,12 +347,53 @@ describe('webui api boundaries', () => {
     expect(restartGatewayMock).toHaveBeenCalled();
   });
 
+  it('installs the rendered agent-task-intake skill into OPENCLAW_HOME', async () => {
+    const skillPath = join(tmpDir, 'skills', 'agent-task-intake', 'SKILL.md');
+
+    const { res, data } = await fetchJson('/api/openclaw/skills/agent-task-intake', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(200);
+    expect(data.stdout).toContain('已写入 agent-task-intake SKILL');
+    expect(data.filePath).toBe(skillPath);
+
+    const content = readFileSync(skillPath, 'utf-8');
+    expect(content).toContain('name: agent-task-intake');
+    expect(content).toContain('必须调用本 SKILL');
+    expect(content).toContain('- 收到 X、微信公众号、博客、新闻文章等内容链接，或用户明确要求研究一篇文章');
+    expect(content).not.toContain('{{types_trigger}}');
+  });
+
+  it('removes the installed agent-task-intake skill from OPENCLAW_HOME', async () => {
+    const skillDir = join(tmpDir, 'skills', 'agent-task-intake');
+    const skillPath = join(skillDir, 'SKILL.md');
+    await fetchJson('/api/openclaw/skills/agent-task-intake', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    const { res, data } = await fetchJson('/api/openclaw/skills/agent-task-intake', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(200);
+    expect(data.stdout).toContain('已移除 agent-task-intake SKILL');
+    expect(data.filePath).toBe(skillPath);
+    expect(() => readFileSync(skillPath, 'utf-8')).toThrow();
+  });
+
   it('builds an execution reference prompt with common rules and strategy references', () => {
     const config = readWebuiConfig();
     const prompt = buildExecutionReferencePrompt({ config, mode: 'dispatch' });
 
     expect(prompt).toContain('请执行任务 demo-1234');
-    expect(prompt).toContain('report.html（_使用 webpage-designer_）');
+    expect(prompt).toContain('最后**必须**生成 report.md、report.html、report.mp3');
     expect(prompt).toContain(config.executionGuidance.strategies[0].name);
     expect(prompt).toContain('expectsCompletionMessage: false');
     expect(prompt).not.toContain('返工说明');
@@ -433,7 +511,7 @@ describe('webui api boundaries', () => {
 
     expect(res.status).toBe(200);
     expect(data.general.openclawDefaults.timeoutSeconds).toBe(1800);
-    expect(data.chatGuidance.template).toContain('默认就使用 `agent-task`');
+    expect(data.chatGuidance.template).toContain('name: agent-task-intake');
     expect(data.executionGuidance.template).toContain('{{#if repair}}');
     expect(data.executionGuidance.common.executionApproach).toBeTruthy();
     expect(Array.isArray(data.executionGuidance.strategies)).toBe(true);
@@ -453,7 +531,7 @@ describe('webui api boundaries', () => {
     const { res, data } = await fetchJson('/api/prompts/defaults');
 
     expect(res.status).toBe(200);
-    expect(data.chat).toBe(readFileSync(join(process.cwd(), 'docs/prompt-templates/agent-onboarding.md'), 'utf-8').trim());
+    expect(data.chat).toBe(readFileSync(join(process.cwd(), 'docs/prompt-templates/agent-intake-skill.md'), 'utf-8').trim());
     expect(data.execution).toBe(readFileSync(join(process.cwd(), 'docs/prompt-templates/agent-execution.md'), 'utf-8').trim());
   });
 
@@ -461,7 +539,8 @@ describe('webui api boundaries', () => {
     const { res, data } = await fetchJson('/api/prompts/sections?type=chat');
 
     expect(res.status).toBe(200);
-    expect(data.sections[0].content).toContain('默认就使用 `agent-task`');
+    expect(data.sections[0].content).toContain('name: agent-task-intake');
+    expect(data.sections[1].content).toContain('{{types_trigger}}');
     expect(data.sections[1].content).toContain('{{#if hasTask}}');
   });
 

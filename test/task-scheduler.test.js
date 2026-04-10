@@ -63,9 +63,8 @@ describe('openclaw dispatch integration', () => {
     expect(prompt).toContain(`Session Key: task-${task.id}`);
     expect(prompt).toContain(`Timeout: ${task.timeout_seconds}s`);
     expect(prompt).toContain(`agent-task status ${task.id} done`);
-    expect(prompt).toContain('report.html（_使用 webpage-designer_）');
-    expect(prompt).toContain('report.mp3（_使用 Gemini TTS_）');
-    expect(prompt).toContain('通过 `message` 工具发**飞书卡片消息**给用户（green 主题，需要包含两个按钮：查看网页报告、查看文字报告');
+    expect(prompt).toContain('最后**必须**生成 report.md、report.html、report.mp3');
+    expect(prompt).toContain('通过 `message` 工具发飞书卡片消息给用户（green 主题，需要包含两个按钮：查看网页报告、查看文字报告');
     expect(prompt).toContain('expectsCompletionMessage: false');
     expect(prompt).toContain('执行类型参考');
     expect(prompt).not.toContain('返工说明');

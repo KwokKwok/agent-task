@@ -60,7 +60,10 @@ export function AgentOnboardingPane({ config, onSave, saving }) {
   async function handleSave() {
     const saved = await onSave(
       { chatGuidance: { template: draft } },
-      { successMessage: '已保存', successDescription: 'Onboarding 提示词已更新' }
+      {
+        successMessage: '已保存',
+        successDescription: 'Intake SKILL 已更新',
+      },
     );
     if (saved) {
       setEditing(false);
@@ -81,17 +84,19 @@ export function AgentOnboardingPane({ config, onSave, saving }) {
           <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="settings-title text-[15px] font-medium">Onboarding 提示词</div>
+                <div className="settings-title text-[15px] font-medium">
+                  agent-task-intake SKILL
+                </div>
                 <div className="settings-card-soft inline-flex rounded-full px-2.5 py-1 text-[10px] leading-none">
                   {editing ? '编辑中' : '预览'}
                 </div>
               </div>
               <div className="settings-muted mt-2 text-[13px] leading-6">
-                维护写入
-                {' '}
-                <code className="rounded bg-white px-1.5 py-0.5 text-[11px] text-[var(--text-main)]">AGENTS.md</code>
-                {' '}
-                的接入模板。
+                维护{' '}
+                <code className="rounded bg-white px-1.5 py-0.5 text-[11px] text-[var(--text-main)]">
+                  agent-task-intake/SKILL.md
+                </code>{' '}
+                模板。
               </div>
             </div>
 
@@ -164,8 +169,16 @@ export function AgentOnboardingPane({ config, onSave, saving }) {
           {editing ? (
             <div className="settings-card-soft mb-3 rounded-[12px] px-3 py-2 text-[12px]">
               <span className="settings-muted">可用变量：</span>
-              <code className="mx-1 rounded bg-white px-1.5 py-0.5 text-[11px] text-[var(--text-main)]">{'{{types}}'}</code>
-              <span className="settings-muted">任务类型列表。</span>
+              <code className="mx-1 rounded bg-white px-1.5 py-0.5 text-[11px] text-[var(--text-main)]">
+                {'{{types}}'}
+              </code>
+              <span className="settings-muted">任务类型详情，</span>
+              <code className="mx-1 rounded bg-white px-1.5 py-0.5 text-[11px] text-[var(--text-main)]">
+                {'{{types_trigger}}'}
+              </code>
+              <span className="settings-muted">
+                仅保留 trigger 的单行版本。
+              </span>
             </div>
           ) : null}
 
@@ -176,7 +189,7 @@ export function AgentOnboardingPane({ config, onSave, saving }) {
           ) : editing ? (
             <Textarea
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={e => setDraft(e.target.value)}
               className="settings-input h-full min-h-[320px] flex-1 overflow-auto rounded-[14px] font-mono text-[12px] leading-6 resize-none"
               disabled={saving}
             />
