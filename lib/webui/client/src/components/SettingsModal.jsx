@@ -11,6 +11,7 @@ import { PromptEditorPane } from './settings/PromptEditorPane';
 import { SettingsNav } from './settings/SettingsNav';
 import { TaskTypesSettingsPane } from './settings/TaskTypesSettingsPane';
 import { AgentOnboardingPane } from './settings/AgentOnboardingPane';
+import { StoragePane } from './settings/StoragePane';
 
 async function fetchJson(path, options) {
   const res = await fetch(path, {
@@ -33,6 +34,8 @@ function buildConfigPayload(config) {
     general: config.general,
     executionGuidance: config.executionGuidance,
     chatGuidance: config.chatGuidance,
+    resourceCache: config.resourceCache,
+    s3: config.s3,
   };
 }
 
@@ -97,6 +100,9 @@ function mergeConfigPatch(current, patch) {
           ...patch.chatGuidance,
         }
       : current.chatGuidance,
+    resourceCache:
+      patch.resourceCache !== undefined ? patch.resourceCache : current.resourceCache,
+    s3: patch.s3 !== undefined ? patch.s3 : current.s3,
   };
 }
 
@@ -107,6 +113,7 @@ export function SettingsModal({ onClose }) {
     port: 3333,
     publicUrl: '',
     dataRoot: '',
+    resourceCache: { enabled: true },
   });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -176,7 +183,7 @@ export function SettingsModal({ onClose }) {
         if (!open) onClose();
       }}
     >
-      <DialogContent className="settings-dialog h-[min(86vh,820px)] gap-0 overflow-hidden p-0">
+      <DialogContent className="h-[min(86vh,820px)] gap-0 overflow-hidden rounded-[20px] border-none bg-[var(--panel-bg-strong)] p-0 shadow-[rgba(0,0,0,0.06)_0px_0px_0px_1px,rgba(0,0,0,0.04)_0px_4px_4px,rgba(0,0,0,0.02)_0px_8px_24px]">
         <DialogTitle className="sr-only">设置</DialogTitle>
         <DialogDescription className="sr-only">
           配置 WebUI 常规参数、提示词模板和任务类型。
@@ -184,15 +191,14 @@ export function SettingsModal({ onClose }) {
         {loading ? (
           <SettingsLoadingSkeleton />
         ) : (
-          <div className="settings-pane flex min-h-0 flex-1 flex-row overflow-hidden rounded-[16px]">
+          <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
             <SettingsNav
               active={activePane}
               onChange={setActivePane}
               onClose={onClose}
-              config={config}
             />
             <div
-              className={`settings-pane flex min-h-0 flex-1 flex-col py-7 ${activePane === 'task-types' ? 'overflow-y-auto' : 'overflow-hidden'}`}
+              className={`flex min-h-0 flex-1 flex-col py-7 ${activePane === 'task-types' ? 'overflow-y-auto' : 'overflow-hidden'}`}
             >
               <div
                 className={`w-full px-8 ${activePane === 'task-types' ? '' : 'flex min-h-0 flex-1 flex-col'}`}
@@ -205,6 +211,12 @@ export function SettingsModal({ onClose }) {
                   />
                 ) : activePane === 'task-types' ? (
                   <TaskTypesSettingsPane
+                    config={config}
+                    onSave={handleSave}
+                    saving={saving}
+                  />
+                ) : activePane === 'storage' ? (
+                  <StoragePane
                     config={config}
                     onSave={handleSave}
                     saving={saving}

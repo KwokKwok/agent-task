@@ -28,6 +28,9 @@ async function fetchJson(path, options) {
   return data;
 }
 
+const btnSecondary = 'h-7 rounded-full border-none bg-[var(--surface-soft)] px-2.5 text-[11px] font-medium tracking-[0.014em] text-[var(--text-soft)] hover:bg-[color-mix(in_srgb,var(--surface-soft)_70%,transparent)] hover:text-[var(--text-main)]';
+const btnPrimary = 'h-7 rounded-full bg-[var(--text-main)] px-2.5 text-[11px] font-medium tracking-[0.014em] text-[var(--panel-bg-strong)] hover:opacity-90';
+
 const PROMPT_META = {
   execution: {
     id: 'execution',
@@ -154,7 +157,7 @@ function detectAutocompleteContext(value, cursor) {
 
 function ScenarioToggle({ label, checked, onChange, disabled = false }) {
   return (
-    <label className={`settings-muted inline-flex items-center gap-2 text-[12px] ${disabled ? 'opacity-50' : ''}`}>
+    <label className={`inline-flex items-center gap-2 text-[12px] tracking-[0.014em] text-[var(--text-soft)] ${disabled ? 'opacity-50' : ''}`}>
       <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
       <span>{label}</span>
     </label>
@@ -172,9 +175,9 @@ function VariablePicker({
   onClose,
 }) {
   return (
-    <div className="settings-card rounded-[14px]">
-      <div className="settings-divider flex items-center gap-2 border-b px-3 py-2.5">
-        <Sparkles className="settings-muted h-3.5 w-3.5" />
+    <div className="rounded-[14px] bg-[var(--panel-bg-strong)]">
+      <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-2.5 bg-[var(--surface-soft)] rounded-t-[14px]">
+        <Sparkles className="h-3.5 w-3.5 text-[var(--text-muted)]" />
         <div className="min-w-0 flex-1">
           <input
             value={query}
@@ -182,20 +185,20 @@ function VariablePicker({
             onChange={(event) => onQueryChange(event.target.value)}
             onKeyDown={onKeyDown}
             placeholder="搜索变量，例如 任务标题 / 反馈 / repair"
-            className="settings-title h-8 w-full border-0 bg-transparent px-0 text-sm outline-none placeholder:text-[var(--text-muted)]"
+            className="h-8 w-full border-0 bg-transparent px-0 text-sm tracking-[0.014em] text-[var(--text-main)] outline-none placeholder:text-[var(--text-muted)]"
           />
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="settings-icon-button inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-soft)] transition-colors hover:bg-[var(--surface-soft)]"
         >
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {!items.length ? (
-        <div className="settings-muted px-3 py-3 text-sm">
+        <div className="px-3 py-3 text-sm tracking-[0.014em] text-[var(--text-muted)]">
           没有匹配项。可以继续输入搜索词，或直接关闭。
         </div>
       ) : (
@@ -206,16 +209,29 @@ function VariablePicker({
                 key={`${item.group}-${item.token}`}
                 type="button"
                 onClick={() => onSelect(item.token)}
-                className={`flex w-full flex-col items-start rounded-[10px] px-3 py-2.5 text-left transition-colors ${
-                  activeIndex === index ? 'bg-[color-mix(in_srgb,var(--surface-soft)_92%,transparent)]' : 'hover:bg-[color-mix(in_srgb,var(--surface-soft)_72%,transparent)]'
-                }`}
+                className="flex w-full flex-col items-start rounded-[10px] px-3 py-2.5 text-left transition-colors"
+                style={{
+                  background: activeIndex === index
+                    ? 'color-mix(in srgb, var(--surface-soft) 80%, transparent)'
+                    : undefined,
+                }}
+                onMouseEnter={(e) => {
+                  if (activeIndex !== index) {
+                    e.currentTarget.style.background = 'color-mix(in srgb, var(--surface-soft) 60%, transparent)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (activeIndex !== index) {
+                    e.currentTarget.style.background = '';
+                  }
+                }}
               >
                 <div className="flex w-full items-center justify-between gap-3">
-                  <span className="settings-title text-sm font-medium">{item.label}</span>
-                  <span className="settings-dim text-[11px] uppercase tracking-wide">{item.group}</span>
+                  <span className="text-sm font-medium tracking-[0.014em] text-[var(--text-main)]">{item.label}</span>
+                  <span className="text-[11px] uppercase tracking-[0.018em] text-[var(--text-muted)]">{item.group}</span>
                 </div>
-                <div className="settings-muted mt-0.5 text-xs leading-5">{item.description}</div>
-                <code className="settings-code-chip mt-1.5 rounded px-1.5 py-0.5 font-mono text-[11px]">
+                <div className="mt-0.5 text-xs leading-5 tracking-[0.014em] text-[var(--text-muted)]">{item.description}</div>
+                <code className="mt-1.5 rounded bg-[var(--surface-soft)] px-1.5 py-0.5 font-mono text-[11px] tracking-[0.014em] text-[var(--text-soft)]">
                   {item.token}
                 </code>
               </button>
@@ -282,6 +298,12 @@ export function PromptEditorPane({ config, onSave, saving }) {
   useEffect(() => {
     setActiveIndex(0);
   }, [pickerQuery, pickerOpen]);
+
+  useEffect(() => {
+    if (editing && textareaRef.current) {
+      requestAnimationFrame(() => textareaRef.current.focus());
+    }
+  }, [editing]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -460,17 +482,16 @@ export function PromptEditorPane({ config, onSave, saving }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex min-h-0 flex-1 flex-col rounded-[18px]">
-        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="settings-title text-[15px] font-medium">{meta.shortLabel}</div>
-              <div className="settings-card-soft inline-flex rounded-full px-2.5 py-1 text-[10px] leading-none">
+              <div className="text-[15px] font-medium tracking-[0.016em] text-[var(--text-main)]">{meta.shortLabel}</div>
+              <div className="inline-flex rounded-full bg-[var(--surface-soft)] px-2.5 py-1 text-[10px] font-medium tracking-[0.014em] text-[var(--text-soft)]">
                 {editing ? '编辑中' : '预览'}
               </div>
             </div>
             {!editing ? (
-              <div className="settings-muted mt-2 text-[13px] leading-6">
+              <div className="mt-2 text-[12px] leading-[1.6] tracking-[0.014em] text-[var(--text-soft)]">
                 给执行 Agent 的运行时提示词，会根据任务、反馈、repair 模式和任务类型动态拼接。
               </div>
             ) : null}
@@ -483,7 +504,7 @@ export function PromptEditorPane({ config, onSave, saving }) {
                   type="button"
                   variant="outline"
                   onClick={openManualPicker}
-                  className="settings-button-secondary h-7 rounded-full px-2.5 text-[11px]"
+                  className={btnSecondary}
                 >
                   <Sparkles className="mr-1 h-3.5 w-3.5" />
                   插入变量
@@ -491,26 +512,26 @@ export function PromptEditorPane({ config, onSave, saving }) {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={cancelEditing}
-                  className="settings-button-secondary h-7 rounded-full px-2.5 text-[11px]"
-                >
-                  <X className="mr-1 h-3.5 w-3.5" />
-                  取消
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
                   onClick={() => void handleResetTemplate()}
-                  className="settings-button-secondary h-7 rounded-full px-2.5 text-[11px]"
+                  className={btnSecondary}
                 >
                   <RotateCcw className="mr-1 h-3.5 w-3.5" />
                   重置为默认
                 </Button>
                 <Button
                   type="button"
+                  variant="outline"
+                  onClick={cancelEditing}
+                  className={btnSecondary}
+                >
+                  <X className="mr-1 h-3.5 w-3.5" />
+                  取消
+                </Button>
+                <Button
+                  type="button"
                   onClick={() => void handleSaveTemplate()}
                   disabled={saving}
-                  className="settings-button-primary h-7 rounded-full px-2.5 text-[11px]"
+                  className={btnPrimary}
                 >
                   <Save className="mr-1 h-3.5 w-3.5" />
                   {saving ? '保存中...' : '保存'}
@@ -522,7 +543,7 @@ export function PromptEditorPane({ config, onSave, saving }) {
                   type="button"
                   variant="outline"
                   onClick={() => void handleCopyPreview()}
-                  className="settings-button-secondary h-7 rounded-full px-2.5 text-[11px]"
+                  className={btnSecondary}
                 >
                   <Clipboard className="mr-1 h-3.5 w-3.5" />
                   {meta.copyLabel}
@@ -530,7 +551,7 @@ export function PromptEditorPane({ config, onSave, saving }) {
                 <Button
                   type="button"
                   onClick={startEditing}
-                  className="settings-button-primary h-7 rounded-full px-2.5 text-[11px]"
+                  className={btnPrimary}
                 >
                   <PencilLine className="mr-1 h-3.5 w-3.5" />
                   编辑
@@ -541,7 +562,7 @@ export function PromptEditorPane({ config, onSave, saving }) {
         </div>
 
         {!editing ? (
-          <div className="settings-card-soft mb-4 rounded-[14px] px-4 py-3">
+          <div className="mb-4 rounded-[12px] bg-[var(--surface-soft)] px-4 py-3">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <ScenarioToggle label="使用模拟任务" checked={useMockTask} onChange={setUseMockTask} />
               <ScenarioToggle label="包含用户反馈" checked={hasFeedback} onChange={setHasFeedback} />
@@ -555,7 +576,7 @@ export function PromptEditorPane({ config, onSave, saving }) {
             {!useMockTask ? (
               <div className="mt-3">
                 <Select value={selectedTaskId || undefined} onValueChange={setSelectedTaskId}>
-                  <SelectTrigger className="settings-input h-9 rounded-[12px] px-3 text-[12px]">
+                  <SelectTrigger className="h-9 rounded-[12px] border-none bg-[var(--panel-bg-strong)] px-3 text-[12px]">
                     <SelectValue placeholder="选择真实任务" />
                   </SelectTrigger>
                   <SelectContent>
@@ -570,13 +591,17 @@ export function PromptEditorPane({ config, onSave, saving }) {
             ) : null}
           </div>
         ) : (
-          <div className="settings-card-soft mb-3 rounded-[12px] px-3 py-2 text-[12px]">
-            输入 <code className="mx-1 rounded bg-white px-1.5 py-0.5 text-[11px] text-[var(--text-main)]">{'{{'}</code> 可快速搜索变量。
+          <div className="mb-3 rounded-[12px] bg-[var(--surface-soft)] px-3 py-2 text-[12px] tracking-[0.014em] text-[var(--text-soft)]">
+            输入 <code className="mx-1 rounded bg-[var(--panel-bg-strong)] px-1.5 py-0.5 text-[11px] text-[var(--text-main)]">{'{{'}</code> 可快速搜索变量。
           </div>
         )}
 
         {previewError && !editing ? (
-          <div className="settings-error mb-3 rounded-xl px-4 py-3 text-sm">
+          <div className="mb-3 rounded-xl px-4 py-3 text-sm" style={{
+            background: 'var(--danger-bg)',
+            color: 'var(--danger-text)',
+            boxShadow: 'inset 0 0 0 1px var(--danger-border)'
+          }}>
             {previewError}
           </div>
         ) : null}
@@ -603,15 +628,14 @@ export function PromptEditorPane({ config, onSave, saving }) {
               value={draft}
               onChange={handleDraftChange}
               onKeyDown={handlePickerNavigation}
-              className="settings-input min-h-0 flex-1 overflow-auto resize-none rounded-[14px] font-mono text-[12px] leading-6"
+              className="min-h-0 flex-1 overflow-auto resize-none rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-soft)] font-mono text-[12px] leading-6 tracking-[0.014em] text-[var(--text-main)] focus:ring-1 focus:ring-[rgba(147,197,253,0.5)] focus:border-transparent"
             />
           </>
         ) : (
-          <pre className="settings-preview min-h-0 flex-1 overflow-auto whitespace-pre-wrap rounded-[14px] px-4 py-4 font-mono text-[12px] leading-6">
+          <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap rounded-[14px] border-none bg-[var(--surface-soft)] px-4 py-4 font-mono text-[12px] leading-6 tracking-[0.014em] text-[var(--text-main)]">
             {previewLoading ? '生成中...' : preview}
           </pre>
         )}
       </div>
-    </div>
   );
 }

@@ -30,6 +30,9 @@ import {
 } from 'lucide-react';
 import { AgentSyncDialog } from './AgentSyncDialog';
 
+const btnSecondary = 'h-7 rounded-full border-none bg-[var(--surface-soft)] px-2.5 text-[11px] font-medium tracking-[0.014em] text-[var(--text-soft)] hover:bg-[color-mix(in_srgb,var(--surface-soft)_70%,transparent)] hover:text-[var(--text-main)]';
+const btnPrimary = 'h-7 rounded-full bg-[var(--text-main)] px-2.5 text-[11px] font-medium tracking-[0.014em] text-[var(--panel-bg-strong)] hover:opacity-90';
+
 function buildDraft(taskType = {}, fallbackTimeoutMinutes = 30) {
   return {
     id: taskType.id || '',
@@ -54,11 +57,12 @@ function buildConfigWithTaskTypes(config, taskTypes) {
 
 function TaskTypeStatusBadge({ enabled }) {
   return (
-    <span className={`inline-flex h-7 items-center rounded-full px-3 text-xs font-medium ${
-      enabled
-        ? 'settings-success-badge'
-        : 'settings-neutral-badge'
-    }`}
+    <span
+      className={
+        enabled
+          ? 'tasktype-badge-enabled'
+          : 'tasktype-badge-disabled'
+      }
     >
       {enabled ? '已启用' : '已停用'}
     </span>
@@ -82,62 +86,64 @@ function TaskTypeEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DialogContent className="settings-dialog w-[min(calc(100vw-3rem),760px)] max-h-[min(88vh,760px)] rounded-[16px] p-0">
+      <DialogContent className="tasktype-dialog w-[min(calc(100vw-3rem),760px)] max-h-[min(88vh,760px)] rounded-[20px] p-0">
         <DialogTitle className="sr-only">
           {editing ? '编辑任务类型' : '新建任务类型'}
         </DialogTitle>
         <DialogDescription className="sr-only">
           配置任务类型的名称、触发条件、创建前说明和执行参考。
         </DialogDescription>
-        <div className="settings-pane flex min-h-0 flex-col overflow-hidden rounded-[16px]">
-          <div className="settings-divider flex items-center justify-between border-b px-5 py-4">
+        <div className="settings-pane flex min-h-0 flex-col overflow-hidden rounded-[20px]">
+          <div className="tasktype-dialog-header flex items-center justify-between px-6 py-5">
             <div>
-              <h3 className="settings-title text-[1rem] font-normal">
+              <h3 className="tasktype-heading text-[1rem]">
                 {editing ? '编辑任务类型' : '新建任务类型'}
               </h3>
-              <p className="settings-muted mt-1 text-[13px] leading-6">
+              <p className="tasktype-subtext mt-1 text-[13px] leading-6">
                 任务类型决定聊天阶段如何创建任务，以及执行阶段如何拼接提示词。
               </p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="settings-icon-button inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors"
+              className="tasktype-close-btn inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors"
             >
               <X className="h-4.5 w-4.5" />
             </button>
           </div>
 
-          <div className="overflow-y-auto px-5 py-4">
-            <div className="space-y-3.5">
+          <div className="tasktype-dialog-divider" />
+
+          <div className="overflow-y-auto px-6 py-5">
+            <div className="space-y-4">
               <label className="block">
-                <div className="settings-title mb-2 text-sm font-medium">类型 ID</div>
+                <div className="tasktype-label mb-2 text-sm font-medium">类型 ID</div>
                 <Input
                   value={draft.id}
                   disabled={editing || saving}
                   onChange={(event) => onChange({ id: event.target.value })}
                   placeholder="例如 article_research"
-                  className="settings-input h-10 rounded-[12px] px-3.5 text-sm"
+                  className="tasktype-input h-10 rounded-[12px] px-4 text-sm"
                 />
-                <div className="settings-muted mt-2 text-[12px] leading-5">
+                <div className="tasktype-hint mt-2 text-[12px] leading-5">
                   {editing ? '类型 ID 创建后不可修改。' : '建议使用稳定的 snake_case，创建后不可修改。'}
                 </div>
               </label>
 
               <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_120px]">
                 <label className="block">
-                  <div className="settings-title mb-2 text-sm font-medium">类型名称</div>
+                  <div className="tasktype-label mb-2 text-sm font-medium">类型名称</div>
                   <Input
                     value={draft.name}
                     disabled={saving}
                     onChange={(event) => onChange({ name: event.target.value })}
                     placeholder="例如 文章研究"
-                    className="settings-input h-10 rounded-[12px] px-3.5 text-sm"
+                    className="tasktype-input h-10 rounded-[12px] px-4 text-sm"
                   />
                 </label>
 
                 <label className="block">
-                  <div className="settings-title mb-2 text-sm font-medium">超时(分钟)</div>
+                  <div className="tasktype-label mb-2 text-sm font-medium">超时(分钟)</div>
                   <Input
                     type="number"
                     value={draftTimeoutMinutes}
@@ -146,59 +152,61 @@ function TaskTypeEditorDialog({
                       setDraftTimeoutMinutes(mins);
                       onChange({ timeoutSeconds: String(mins * 60) });
                     }}
-                    className="settings-input h-10 rounded-[12px] px-3.5 text-sm"
+                    className="tasktype-input h-10 rounded-[12px] px-4 text-sm"
                   />
                 </label>
               </div>
 
               <label className="block">
-                <div className="settings-title mb-2 text-sm font-medium">触发条件</div>
+                <div className="tasktype-label mb-2 text-sm font-medium">触发条件</div>
                 <Input
                   value={draft.triggerCondition}
                   disabled={saving}
                   onChange={(event) => onChange({ triggerCondition: event.target.value })}
                   placeholder="例如：收到文章链接"
-                  className="settings-input h-10 rounded-[12px] px-3.5 text-sm"
+                  className="tasktype-input h-10 rounded-[12px] px-4 text-sm"
                 />
               </label>
 
               <label className="block">
-                <div className="settings-title mb-2 text-sm font-medium">创建任务前先做什么</div>
+                <div className="tasktype-label mb-2 text-sm font-medium">创建任务前先做什么</div>
                 <Textarea
                   value={draft.beforeCreate}
                   disabled={saving}
                   onChange={(event) => onChange({ beforeCreate: event.target.value })}
                   placeholder="例如：先读取链接内容"
-                  className="settings-input min-h-[60px] resize-y"
+                  className="tasktype-input min-h-[60px] resize-y"
                 />
               </label>
 
               <label className="block">
-                <div className="settings-title mb-2 text-sm font-medium">执行参考</div>
+                <div className="tasktype-label mb-2 text-sm font-medium">执行参考</div>
                 <Textarea
                   value={draft.executionStepsReference}
                   disabled={saving}
                   onChange={(event) => onChange({ executionStepsReference: event.target.value })}
                   placeholder="支持 markdown"
-                  className="settings-input min-h-[100px] resize-y"
+                  className="tasktype-input min-h-[100px] resize-y"
                 />
               </label>
 
               {error ? (
-                <div className="settings-error rounded-xl px-4 py-3 text-sm">
+                <div className="tasktype-error rounded-xl px-4 py-3 text-sm">
                   {error}
                 </div>
               ) : null}
             </div>
           </div>
 
-          <div className="settings-divider flex items-center justify-end gap-2 border-t px-5 py-3.5">
+          <div className="tasktype-dialog-divider" />
+
+          <div className="flex items-center justify-end gap-2 px-6 py-4">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
               disabled={saving}
-              className="settings-button-secondary h-9 rounded-full px-3.5"
+              className={btnSecondary}
             >
               取消
             </Button>
@@ -206,7 +214,7 @@ function TaskTypeEditorDialog({
               type="button"
               onClick={onSave}
               disabled={saving}
-              className="settings-button-primary h-9 rounded-full px-3.5 text-sm font-medium"
+              className={btnPrimary}
             >
               {saving ? '保存中...' : editing ? '保存修改' : '创建类型'}
             </Button>
@@ -328,7 +336,7 @@ export function TaskTypesSettingsPane({ config, onSave, saving }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <AgentSyncDialog
         open={syncOpen}
         config={config}
@@ -340,49 +348,53 @@ export function TaskTypesSettingsPane({ config, onSave, saving }) {
           type="button"
           onClick={() => setSyncOpen(true)}
           disabled={saving}
-          className="settings-button-secondary h-7 rounded-full px-2.5 text-[11px]"
+          className={btnSecondary}
         >
-          <RefreshCw className="h-3.5 w-3.5" />
+          <RefreshCw className="mr-1 h-3.5 w-3.5" />
           同步至 OpenClaw
         </Button>
         <Button
           type="button"
           onClick={openCreateDialog}
           disabled={saving}
-          className="settings-button-primary h-7 rounded-full px-2.5 text-[11px]"
+          className={btnPrimary}
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="mr-1 h-3.5 w-3.5" />
           新建
         </Button>
       </div>
 
       {!taskTypes.length ? (
-        <div className="settings-card rounded-[14px] border-dashed px-4 py-5 text-sm leading-6">
-          当前还没有任务类型。创建后，Agent 可以在创建任务时显式填写 `type_id`，执行提示词也会按类型收窄。
+        <div className="tasktype-empty rounded-[16px] px-5 py-6 text-sm leading-7">
+          <div className="tasktype-empty-icon mb-2 text-2xl">+</div>
+          <div className="tasktype-empty-title text-sm font-medium">还没有任务类型</div>
+          <div className="tasktype-empty-desc mt-1 text-[13px] leading-6">
+            创建后，Agent 可以在创建任务时显式填写 type_id，执行提示词也会按类型收窄。
+          </div>
         </div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {taskTypes.map((taskType, index) => (
             <article
               key={taskType.id}
-              className="settings-card rounded-[16px] p-4"
+              className="tasktype-card rounded-[16px] p-5"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="settings-title text-[15px] font-medium">{taskType.name}</h3>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h3 className="tasktype-title text-[15px] font-medium">{taskType.name}</h3>
                     <TaskTypeStatusBadge enabled={taskType.enabled !== false} />
                   </div>
-                  <div className="settings-muted mt-1 font-mono text-xs">{taskType.id}</div>
+                  <div className="tasktype-mono mt-1 font-mono text-xs">{taskType.id}</div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
                         onClick={() => void toggleTaskType(index)}
                         disabled={saving}
-                        className="settings-button-secondary inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                        className="tasktype-action-btn inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                         title={taskType.enabled === false ? '启用' : '停用'}
                       >
                         {taskType.enabled === false ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
@@ -398,7 +410,7 @@ export function TaskTypesSettingsPane({ config, onSave, saving }) {
                         type="button"
                         onClick={() => openEditDialog(index)}
                         disabled={saving}
-                        className="settings-button-secondary inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                        className="tasktype-action-btn inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                         title="编辑"
                       >
                         <PencilLine className="h-4 w-4" />
@@ -417,7 +429,7 @@ export function TaskTypesSettingsPane({ config, onSave, saving }) {
                               type="button"
                               onClick={() => setDeleteTarget(taskType.id)}
                               disabled={saving}
-                              className="settings-danger-button inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                              className="tasktype-danger-btn inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                               title="删除"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -447,10 +459,10 @@ export function TaskTypesSettingsPane({ config, onSave, saving }) {
                 </div>
               </div>
 
-              <dl className="mt-3 space-y-2 text-sm leading-6">
+              <dl className="mt-3.5 space-y-2 text-sm leading-6">
                 <div>
-                  <dt className="settings-dim text-xs font-semibold uppercase tracking-wide">触发条件</dt>
-                  <dd className="settings-copy mt-1">{taskType.triggerCondition || '未填写'}</dd>
+                  <dt className="tasktype-dim text-[11px] font-semibold uppercase">触发条件</dt>
+                  <dd className="tasktype-copy mt-1">{taskType.triggerCondition || '未填写'}</dd>
                 </div>
               </dl>
             </article>

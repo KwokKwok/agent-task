@@ -245,7 +245,7 @@ const HtmlReportContent = memo(function HtmlReportContent({
         src={htmlReportUrl}
         className="flex-1 rounded-lg"
         title="HTML Report"
-        sandbox=""
+        sandbox="allow-scripts"
         referrerPolicy="no-referrer"
         onLoad={onLoad}
       />
@@ -416,7 +416,6 @@ export function DetailPanel({
   reportHtml,
   reportError,
   htmlReportUrl,
-  htmlReportOriginalUrl,
   htmlReportState,
   filesState,
   filesPath,
@@ -530,7 +529,7 @@ export function DetailPanel({
                   title="在新标签页打开 HTML 报告"
                 >
                   <a
-                    href={`/api/tasks/${task.id}/open-report?mode=interactive`}
+                    href={`/api/tasks/${task.id}/open-report`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

@@ -1,18 +1,20 @@
 import { CircleHelp, Database, Globe2, Server } from 'lucide-react';
 
 function SectionDivider() {
-  return <div className="settings-divider my-4 border-t" />;
+  return <div className="my-5 border-t border-[var(--border-subtle)]" />;
 }
 
 function SectionHeader({ icon: Icon, title, description }) {
   return (
     <div className="mb-3">
-      <div className="settings-title flex items-center gap-2">
-        <Icon className="h-3.5 w-3.5" />
-        <span className="text-sm font-medium">{title}</span>
+      <div className="flex items-center gap-2 text-[13px] font-medium tracking-[0.014em] text-[var(--text-main)]">
+        <Icon className="h-4 w-4 text-[var(--text-soft)]" />
+        {title}
       </div>
       {description ? (
-        <p className="settings-muted mt-1 text-[13px] leading-6">{description}</p>
+        <p className="mt-1 text-[12px] leading-[1.6] tracking-[0.014em] text-[var(--text-soft)]">
+          {description}
+        </p>
       ) : null}
     </div>
   );
@@ -22,10 +24,10 @@ function ReadOnlyRow({ label, description, value }) {
   return (
     <div className="flex flex-col gap-2 py-3 md:flex-row md:items-start md:justify-between">
       <div className="min-w-0 shrink-0 basis-[180px]">
-        <div className="settings-title text-sm font-medium">{label}</div>
-        {description ? <div className="settings-muted mt-0.5 text-[12px] leading-5">{description}</div> : null}
+        <div className="text-[13px] font-medium tracking-[0.014em] text-[var(--text-main)]">{label}</div>
+        {description ? <div className="mt-0.5 text-[11px] leading-[1.45] tracking-[0.014em] text-[var(--text-muted)]">{description}</div> : null}
       </div>
-      <div className="settings-card-soft min-h-[40px] min-w-0 flex-1 rounded-[12px] px-3.5 py-2.5 font-mono text-[12px] leading-6 break-all">
+      <div className="min-h-[36px] min-w-0 flex-1 rounded-[10px] bg-[var(--surface-soft)] px-3.5 py-2 font-mono text-[12px] leading-[1.6] tracking-normal text-[var(--text-main)] break-all">
         {value || '-'}
       </div>
     </div>
@@ -40,12 +42,15 @@ function formatBindAddress(runtimeInfo, config) {
 
 export function GeneralSettingsPane({ config }) {
   return (
-    <div className="space-y-1">
-      <SectionHeader
-        icon={CircleHelp}
-        title="关于"
-        description="这里展示当前 WebUI 实例的只读环境信息。部署与启动参数请通过命令行或 README 配置。"
-      />
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className="mb-6">
+        <div className="text-[15px] font-medium tracking-[0.016em] text-[var(--text-main)]">
+          关于
+        </div>
+        <div className="mt-1 text-[12px] leading-[1.6] tracking-[0.014em] text-[var(--text-soft)]">
+          当前 WebUI 实例的只读环境信息
+        </div>
+      </div>
 
       <SectionHeader
         icon={Database}
@@ -105,17 +110,13 @@ export function GeneralSettingsPane({ config }) {
         description="以下配置项已移出 WebUI，仅保留在命令行和 README 中维护。"
       />
 
-      <div className="settings-card rounded-[14px] p-4 text-sm leading-6">
-        <div className="settings-muted">
-          已移出界面的项目：
-          {' '}
-          <code>Host</code>
-          、<code>Port</code>
-          、<code>Public URL</code>
-          、<code>Default Thinking</code>
-          、<code>Default Timeout</code>
-          。
-        </div>
+      <div className="rounded-[12px] bg-[var(--surface-soft)] p-4 text-[12px] leading-[1.6] tracking-[0.014em] text-[var(--text-soft)]">
+        已移出界面的项目：{' '}
+        <code className="rounded bg-[var(--panel-bg-strong)] px-1.5 py-0.5 font-mono text-[11px]">Host</code>、
+        <code className="rounded bg-[var(--panel-bg-strong)] px-1.5 py-0.5 font-mono text-[11px]">Port</code>、
+        <code className="rounded bg-[var(--panel-bg-strong)] px-1.5 py-0.5 font-mono text-[11px]">Public URL</code>、
+        <code className="rounded bg-[var(--panel-bg-strong)] px-1.5 py-0.5 font-mono text-[11px]">Default Thinking</code>、
+        <code className="rounded bg-[var(--panel-bg-strong)] px-1.5 py-0.5 font-mono text-[11px]">Default Timeout</code>。
       </div>
     </div>
   );

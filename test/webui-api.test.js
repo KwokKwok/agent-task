@@ -1,11 +1,20 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const { sendAgentMessageMock, restartGatewayMock } = vi.hoisted(() => ({
   sendAgentMessageMock: vi.fn(),
   restartGatewayMock: vi.fn(),
+}));
+const { isS3EnabledMock, getPresignedUrlMock, getPublicObjectUrlMock, verifyS3ConnectionMock, ensureBucketCorsMock, ensureBucketStructureMock, ensureFileSyncedToS3Mock } = vi.hoisted(() => ({
+  isS3EnabledMock: vi.fn(() => false),
+  getPresignedUrlMock: vi.fn(),
+  getPublicObjectUrlMock: vi.fn(),
+  verifyS3ConnectionMock: vi.fn(),
+  ensureBucketCorsMock: vi.fn(),
+  ensureBucketStructureMock: vi.fn(),
+  ensureFileSyncedToS3Mock: vi.fn(),
 }));
 
 vi.mock('../lib/openclaw.js', async () => {
@@ -17,11 +26,33 @@ vi.mock('../lib/openclaw.js', async () => {
   };
 });
 
+vi.mock('../lib/webui/s3-client.js', async () => {
+  const actual = await vi.importActual('../lib/webui/s3-client.js');
+  return {
+    ...actual,
+    isS3Enabled: isS3EnabledMock,
+    getPresignedUrl: getPresignedUrlMock,
+    getPublicObjectUrl: getPublicObjectUrlMock,
+    verifyS3Connection: verifyS3ConnectionMock,
+    ensureBucketCors: ensureBucketCorsMock,
+    ensureBucketStructure: ensureBucketStructureMock,
+  };
+});
+
+vi.mock('../lib/webui/s3-sync.js', async () => {
+  const actual = await vi.importActual('../lib/webui/s3-sync.js');
+  return {
+    ...actual,
+    ensureFileSyncedToS3: ensureFileSyncedToS3Mock,
+  };
+});
+
 import { getDb, resetDb } from '../lib/db.js';
 import { buildChatAgentPrompt, buildExecutionReferencePrompt } from '../lib/prompt-builders.js';
+import { getAssetsDir } from '../lib/resource-cache.js';
 import { createTask, setStatus } from '../lib/task.js';
 import { createTaskRun } from '../lib/task-run.js';
-import { readWebuiConfig } from '../lib/webui/config-store.js';
+import { readWebuiConfig, setWebuiConfig } from '../lib/webui/config-store.js';
 import { createSessionCookie } from '../lib/webui/auth.js';
 import { startWebUiServer } from '../lib/webui/server.js';
 import { writeSystemLog } from '../lib/webui/system-log.js';
@@ -101,6 +132,21 @@ describe('webui api boundaries', () => {
       stdout: 'gateway restarted',
       stderr: '',
     });
+    isS3EnabledMock.mockReset();
+    isS3EnabledMock.mockReturnValue(false);
+    getPresignedUrlMock.mockReset();
+    getPresignedUrlMock.mockResolvedValue(null);
+    getPublicObjectUrlMock.mockReset();
+    getPublicObjectUrlMock.mockResolvedValue(null);
+    verifyS3ConnectionMock.mockReset();
+    verifyS3ConnectionMock.mockResolvedValue({ ok: true });
+    ensureBucketCorsMock.mockReset();
+    ensureBucketCorsMock.mockResolvedValue(undefined);
+    ensureBucketStructureMock.mockReset();
+    ensureBucketStructureMock.mockResolvedValue(undefined);
+    ensureFileSyncedToS3Mock.mockReset();
+    ensureFileSyncedToS3Mock.mockResolvedValue(false);
+    setWebuiConfig({ resourceCache: { enabled: true } });
   });
 
   afterAll(async () => {
@@ -459,41 +505,307 @@ describe('webui api boundaries', () => {
     expect(data.error).toContain('workspace root');
   });
 
-  it('serves html reports with restrictive security headers', async () => {
-    const task = createTask({ title: 'HTML report test' });
+  it('serves html reports with sandboxed script execution and no network access', async () => {
+    const task = createTask({ title: 'HTML report CSP test' });
     writeFileSync(
       join(task.workspace_path, 'report.html'),
-      '<!doctype html><html><head><title>unsafe</title></head><body><script>alert(1)</script><h1>report</h1></body></html>',
+      '<!doctype html><html><head><title>report</title></head><body><script>alert(1)</script><h1>report</h1></body></html>',
     );
 
     const res = await fetch(`${baseUrl}/api/tasks/${task.id}/open-report`, {
       headers: { Cookie: sessionCookie },
     });
     const html = await res.text();
-
-    expect(res.status).toBe(200);
-    expect(res.headers.get('content-security-policy')).toContain('sandbox');
-    expect(res.headers.get('content-security-policy')).toContain("script-src 'none'");
-    expect(html).toContain('<h1>report</h1>');
-  });
-
-  it('serves interactive html reports with script execution allowed inside sandbox', async () => {
-    const task = createTask({ title: 'Interactive HTML report test' });
-    writeFileSync(
-      join(task.workspace_path, 'report.html'),
-      '<!doctype html><html><head><title>interactive</title></head><body><script>document.body.dataset.ready = "1"</script><h1>report</h1></body></html>',
-    );
-
-    const res = await fetch(`${baseUrl}/api/tasks/${task.id}/open-report?mode=interactive`, {
-      headers: { Cookie: sessionCookie },
-    });
-    const html = await res.text();
     const csp = res.headers.get('content-security-policy') || '';
 
     expect(res.status).toBe(200);
+    expect(csp).toContain("script-src 'unsafe-inline'");
+    expect(csp).toContain("connect-src 'none'");
+    expect(csp).toContain('frame-ancestors');
     expect(csp).toContain('sandbox allow-scripts');
-    expect(csp).not.toContain("script-src 'none'");
     expect(html).toContain('<h1>report</h1>');
+  });
+
+  it('rewrites local html report asset urls to signed asset-token urls', async () => {
+    const task = createTask({ title: 'HTML report asset rewrite test' });
+    const imageDir = join(task.workspace_path, 'work', 'images');
+    mkdirSync(imageDir, { recursive: true });
+    writeFileSync(join(imageDir, 'polarization.png'), 'fake-image');
+    writeFileSync(
+      join(task.workspace_path, 'report.html'),
+      '<!doctype html><html><head><title>report</title></head><body><img src="../work/images/polarization.png" alt="chart"></body></html>',
+    );
+
+    const reportRes = await fetch(`${baseUrl}/api/tasks/${task.id}/open-report`, {
+      headers: { Cookie: sessionCookie },
+    });
+    const html = await reportRes.text();
+    const match = html.match(new RegExp(`/api/tasks/${task.id}/asset-token/([^/]+)/work/images/polarization\\.png`));
+
+    expect(reportRes.status).toBe(200);
+    expect(match).toBeTruthy();
+    expect(html).not.toContain(`/api/tasks/${task.id}/asset-token/work/images/polarization.png`);
+
+    const imageRes = await fetch(`${baseUrl}${match[0]}`);
+    const body = await imageRes.text();
+
+    expect(imageRes.status).toBe(200);
+    expect(imageRes.headers.get('content-type')).toContain('image/png');
+    expect(body).toBe('fake-image');
+  });
+
+  it('rewrites cached external resources only when resource cache is enabled', async () => {
+    const task = createTask({ title: 'cached external asset rewrite' });
+    const assetName = 'abcdef123456.css';
+    const assetsDir = getAssetsDir();
+    writeFileSync(join(assetsDir, assetName), 'body { font-family: test; }');
+    writeFileSync(
+      join(assetsDir, 'manifest.json'),
+      JSON.stringify({
+        'https://fonts.googleapis.com/css2?family=Manrope:wght@500;700&display=swap': {
+          filename: assetName,
+          contentType: 'text/css',
+          updatedAt: '2026-04-12T00:00:00.000Z',
+        },
+      }, null, 2),
+    );
+    writeFileSync(
+      join(task.workspace_path, 'report.html'),
+      '<!doctype html><html><head><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700&display=swap"></head><body><h1>report</h1></body></html>',
+    );
+
+    const enabledRes = await fetch(`${baseUrl}/api/tasks/${task.id}/open-report`, {
+      headers: { Cookie: sessionCookie },
+    });
+    const enabledHtml = await enabledRes.text();
+
+    expect(enabledRes.status).toBe(200);
+    expect(enabledHtml).toContain(`/api/assets/${assetName}`);
+    expect(enabledHtml).not.toContain('fonts.googleapis.com/css2');
+
+    await fetchJson('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resourceCache: { enabled: false },
+      }),
+    });
+
+    const disabledRes = await fetch(`${baseUrl}/api/tasks/${task.id}/open-report`, {
+      headers: { Cookie: sessionCookie },
+    });
+    const disabledHtml = await disabledRes.text();
+
+    expect(disabledRes.status).toBe(200);
+    expect(disabledHtml).toContain('fonts.googleapis.com/css2');
+    expect(disabledHtml).not.toContain(`/api/assets/${assetName}`);
+  });
+
+  it('serves cached assets with a long immutable cache policy', async () => {
+    const assetsDir = getAssetsDir();
+    const assetName = 'abcdef123456.css';
+    writeFileSync(join(assetsDir, assetName), 'body { color: red; }');
+
+    const res = await fetch(`${baseUrl}/api/assets/${assetName}`);
+    const css = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/css');
+    expect(res.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+    expect(css).toContain('color: red');
+  });
+
+  it('serves cached image assets with cross-origin resource policy headers', async () => {
+    const assetsDir = getAssetsDir();
+    const assetName = 'abcdef654321.png';
+    writeFileSync(join(assetsDir, assetName), 'fake-image');
+
+    const res = await fetch(`${baseUrl}/api/assets/${assetName}`);
+    const body = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('image/png');
+    expect(res.headers.get('cross-origin-resource-policy')).toBe('cross-origin');
+    expect(res.headers.get('access-control-allow-origin')).toBeNull();
+    expect(body).toBe('fake-image');
+  });
+
+  it('redirects task assets to signed S3 URLs when private S3 storage is enabled', async () => {
+    const task = createTask({ title: 'signed task asset' });
+    writeFileSync(join(task.workspace_path, 'report.mp3'), 'fake-audio');
+    isS3EnabledMock.mockReturnValue(true);
+    ensureFileSyncedToS3Mock.mockResolvedValue(true);
+    getPresignedUrlMock.mockResolvedValue('https://bucket.example.com/signed-object');
+
+    const res = await fetch(`${baseUrl}/api/tasks/${task.id}/asset/report.mp3`, {
+      headers: { Cookie: sessionCookie },
+      redirect: 'manual',
+    });
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('https://bucket.example.com/signed-object');
+    expect(res.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('serves report assets from work/ when html references images/ but files were written under work/images', async () => {
+    const task = createTask({ title: 'work asset fallback' });
+    const workImagesDir = join(task.workspace_path, 'work', 'images');
+    mkdirSync(workImagesDir, { recursive: true });
+    writeFileSync(join(workImagesDir, 'diagram.png'), 'fake-image');
+
+    const res = await fetch(`${baseUrl}/api/tasks/${task.id}/asset/images/diagram.png`, {
+      headers: { Cookie: sessionCookie },
+    });
+    const body = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('image/png');
+    expect(res.headers.get('cache-control')).toBe('private, max-age=1209600');
+    expect(res.headers.get('cross-origin-resource-policy')).toBe('cross-origin');
+    expect(body).toBe('fake-image');
+  });
+
+  it('redirects cached font assets to public S3 URLs with cors headers when S3 is enabled', async () => {
+    const assetsDir = getAssetsDir();
+    const assetName = 'fedcba654321.woff2';
+    writeFileSync(join(assetsDir, assetName), 'fake-font');
+    isS3EnabledMock.mockReturnValue(true);
+    ensureFileSyncedToS3Mock.mockResolvedValue(true);
+    getPublicObjectUrlMock.mockResolvedValue('https://bucket.example.com/public-font.woff2');
+
+    const res = await fetch(`${baseUrl}/api/assets/${assetName}`, {
+      redirect: 'manual',
+    });
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('https://bucket.example.com/public-font.woff2');
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(res.headers.get('access-control-allow-origin')).toBe('*');
+    expect(res.headers.get('cross-origin-resource-policy')).toBe('cross-origin');
+  });
+
+  it('serves cached font assets locally with CORS headers when S3 is disabled', async () => {
+    const assetsDir = getAssetsDir();
+    const assetName = '112233445566.ttf';
+    const absPath = join(assetsDir, assetName);
+    writeFileSync(absPath, 'fake-ttf');
+
+    const firstRes = await fetch(`${baseUrl}/api/assets/${assetName}`);
+    const etag = firstRes.headers.get('etag');
+
+    expect(firstRes.status).toBe(200);
+    expect(etag).toBeTruthy();
+
+    const res = await fetch(`${baseUrl}/api/assets/${assetName}`, {
+      headers: { 'If-None-Match': etag },
+    });
+
+    expect(res.status).toBe(304);
+    expect(res.headers.get('access-control-allow-origin')).toBe('*');
+    expect(res.headers.get('cross-origin-resource-policy')).toBe('cross-origin');
+  });
+
+  it('returns S3 config without accessUrl in the public config payload', async () => {
+    const { res, data } = await fetchJson('/api/config');
+
+    expect(res.status).toBe(200);
+    expect(data.resourceCache).toEqual({ enabled: true });
+    expect(data.s3).toBeTruthy();
+    expect('accessUrl' in data.s3).toBe(false);
+  });
+
+  it('skips resource scanning when resource cache is disabled', async () => {
+    await fetchJson('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resourceCache: { enabled: false },
+      }),
+    });
+
+    const { res, data } = await fetchJson('/api/storage/scan-resources', {
+      method: 'POST',
+    });
+
+    expect(res.status).toBe(200);
+    expect(data.disabled).toBe(true);
+    expect(data.scanned).toBe(0);
+    expect(data.cached).toBe(0);
+    expect(data.errors).toBe(0);
+  });
+
+  it('verifies a draft S3 config without enabling it', async () => {
+    const { res, data } = await fetchJson('/api/s3/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        s3: {
+          endpoint: 'https://cos.example.com',
+          region: 'ap-shanghai',
+          bucket: 'demo-bucket',
+          accessKeyId: 'draft-key',
+          secretAccessKey: 'draft-secret',
+          basePath: 'agent-task/',
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(data.ok).toBe(true);
+    expect(verifyS3ConnectionMock).toHaveBeenCalledWith(expect.objectContaining({
+      endpoint: 'https://cos.example.com',
+      bucket: 'demo-bucket',
+      secretAccessKey: 'draft-secret',
+    }));
+    expect(ensureBucketCorsMock).not.toHaveBeenCalled();
+    expect(ensureBucketStructureMock).not.toHaveBeenCalled();
+  });
+
+  it('configures bucket cors and structure before enabling s3', async () => {
+    await fetchJson('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        s3: {
+          enabled: false,
+          endpoint: 'https://cos.example.com',
+          region: 'ap-shanghai',
+          bucket: 'demo-bucket',
+          accessKeyId: 'draft-key',
+          secretAccessKey: 'draft-secret',
+          basePath: 'agent-task/',
+        },
+      }),
+    });
+
+    const { res, data } = await fetchJson('/api/s3/enable', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        s3: {
+          endpoint: 'https://cos.example.com',
+          region: 'ap-shanghai',
+          bucket: 'demo-bucket',
+          accessKeyId: 'draft-key',
+          secretAccessKey: '********',
+          basePath: 'agent-task/',
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(data.ok).toBe(true);
+    expect(verifyS3ConnectionMock).toHaveBeenCalledWith(expect.objectContaining({
+      secretAccessKey: 'draft-secret',
+    }));
+    expect(ensureBucketCorsMock).toHaveBeenCalledWith(expect.objectContaining({
+      bucket: 'demo-bucket',
+      secretAccessKey: 'draft-secret',
+    }));
+    expect(ensureBucketStructureMock).toHaveBeenCalledWith(expect.objectContaining({
+      bucket: 'demo-bucket',
+      secretAccessKey: 'draft-secret',
+    }));
   });
 
   it('returns config including the resolved data root', async () => {
@@ -593,6 +905,49 @@ describe('webui api boundaries', () => {
     const next = await fetchJson('/api/config');
     expect(next.data.general.openclawDefaults.thinking).toBe('minimal');
     expect(next.data.general.openclawDefaults.timeoutSeconds).toBe(2400);
+  });
+
+  it('updates resource cache settings through /api/config', async () => {
+    const update = await fetchJson('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resourceCache: { enabled: false },
+      }),
+    });
+
+    expect(update.res.status).toBe(200);
+    expect(update.data.resourceCache).toEqual({ enabled: false });
+
+    const next = await fetchJson('/api/config');
+    expect(next.data.resourceCache).toEqual({ enabled: false });
+  });
+
+  it('drops legacy accessUrl fields when updating S3 config through /api/config', async () => {
+    const update = await fetchJson('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        s3: {
+          enabled: true,
+          endpoint: 'https://cos.example.com',
+          accessUrl: 'https://cdn.example.com',
+          region: 'ap-guangzhou',
+          bucket: 'agent-task',
+          accessKeyId: 'test-key',
+          secretAccessKey: 'test-secret',
+          basePath: 'agent-task/',
+        },
+      }),
+    });
+
+    expect(update.res.status).toBe(200);
+    expect(update.data.s3.endpoint).toBe('https://cos.example.com');
+    expect(update.data.s3.bucket).toBe('agent-task');
+    expect('accessUrl' in update.data.s3).toBe(false);
+
+    const next = await fetchJson('/api/config');
+    expect('accessUrl' in next.data.s3).toBe(false);
   });
 
   it('returns execution snapshot fields on task detail', async () => {

@@ -185,6 +185,40 @@ describe('status flow', () => {
     expect(getTask('legacy001')?.description).toBe('核心内容\n\n第二段');
     expect(listTasks().find((task) => task.id === 'legacy001')?.description).toBe('核心内容\n\n第二段');
   });
+
+  it('repairs stale workspace_path values when the same task exists under the current data root', () => {
+    const task = createTask({ title: '旧路径修复' });
+    const stalePath = task.workspace_path.replace(tmpDir, '/root/.openclaw/agent-task');
+    const db = getDb();
+
+    db.prepare('UPDATE tasks SET workspace_path = ? WHERE id = ?').run(stalePath, task.id);
+
+    const repaired = getTask(task.id);
+    const listed = listTasks({ all: true }).find((item) => item.id === task.id);
+    const storedPath = db.prepare('SELECT workspace_path FROM tasks WHERE id = ?').get(task.id).workspace_path;
+
+    expect(repaired.workspace_path).toBe(task.workspace_path);
+    expect(listed?.workspace_path).toBe(task.workspace_path);
+    expect(storedPath).toBe(task.workspace_path);
+  });
+
+  it('repairs stale workspace_path values when legacy paths use Windows separators', () => {
+    const task = createTask({ title: 'Windows 旧路径修复' });
+    const stalePath = task.workspace_path
+      .replaceAll('/', '\\')
+      .replace(tmpDir.replaceAll('/', '\\'), 'C:\\Users\\demo\\.openclaw\\agent-task');
+    const db = getDb();
+
+    db.prepare('UPDATE tasks SET workspace_path = ? WHERE id = ?').run(stalePath, task.id);
+
+    const repaired = getTask(task.id);
+    const listed = listTasks({ all: true }).find((item) => item.id === task.id);
+    const storedPath = db.prepare('SELECT workspace_path FROM tasks WHERE id = ?').get(task.id).workspace_path;
+
+    expect(repaired.workspace_path).toBe(task.workspace_path);
+    expect(listed?.workspace_path).toBe(task.workspace_path);
+    expect(storedPath).toBe(task.workspace_path);
+  });
 });
 
 describe('workspace helpers', () => {

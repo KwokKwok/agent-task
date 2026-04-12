@@ -38,7 +38,6 @@ export default function App() {
     onRejectTask: tm.rejectTask,
     onUpdateStatus: tm.updateStatus,
     htmlReportUrl: tm.htmlReportUrl,
-    htmlReportOriginalUrl: tm.htmlReportOriginalUrl,
     htmlReportState: tm.htmlReportState,
     detailLoading: tm.detailLoading,
     filesState: tm.filesState,

@@ -72,6 +72,7 @@
   --tooltip-border: rgba(17, 24, 39, 0.12);
   --tooltip-shadow:
     0 18px 50px rgba(15, 23, 42, 0.22), 0 4px 18px rgba(15, 23, 42, 0.12);
+  --stone-warm: #f5f3f0;
 
   /* shadcn/ui theme tokens */
   --background: #ffffff;
@@ -167,6 +168,7 @@
   --tooltip-border: rgba(148, 163, 184, 0.24);
   --tooltip-shadow:
     0 18px 50px rgba(0, 0, 0, 0.3), 0 4px 18px rgba(0, 0, 0, 0.16);
+  --stone-warm: #2a2928;
 
   /* shadcn/ui theme tokens */
   --background: #212121;
@@ -560,6 +562,224 @@ button {
   color: var(--danger-text);
 }
 
+/* ── Task type cards – ElevenLabs multi-layer shadow ── */
+
+.tasktype-card {
+  background: var(--surface-soft);
+  transition: background 0.2s ease;
+}
+
+.tasktype-card:hover {
+  background: color-mix(in srgb, var(--surface-soft) 90%, transparent);
+}
+
+.tasktype-title {
+  color: var(--text-main);
+  letter-spacing: 0.16px;
+}
+
+.tasktype-mono {
+  color: var(--text-muted);
+  letter-spacing: 0.14px;
+}
+
+.tasktype-copy {
+  color: var(--text-soft);
+}
+
+.tasktype-dim {
+  color: var(--text-muted);
+  letter-spacing: 0.18px;
+}
+
+/* ── Badges ── */
+
+.tasktype-badge-enabled {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  border-radius: 9999px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14px;
+  background: color-mix(in srgb, var(--status-done-bg) 80%, var(--surface-soft));
+  color: var(--status-done-text);
+}
+
+.tasktype-badge-disabled {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  border-radius: 9999px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14px;
+  background: color-mix(in srgb, var(--surface-soft) 70%, transparent);
+  color: var(--text-muted);
+}
+
+/* ── Action buttons ── */
+
+.tasktype-action-btn {
+  background: var(--panel-bg-strong);
+  color: var(--text-soft);
+  border: none;
+}
+
+.tasktype-action-btn:hover {
+  background: color-mix(in srgb, var(--panel-bg-strong) 80%, transparent);
+  color: var(--text-main);
+}
+
+.tasktype-danger-btn {
+  background: var(--panel-bg-strong);
+  color: var(--danger-text);
+  border: none;
+}
+
+.tasktype-danger-btn:hover {
+  background: color-mix(in srgb, var(--danger-bg) 60%, var(--panel-bg-strong));
+}
+
+/* ── Pill buttons ── */
+
+.tasktype-btn-secondary {
+  border: none !important;
+  background: var(--surface-soft) !important;
+  color: var(--text-soft) !important;
+  letter-spacing: 0.14px;
+}
+
+.tasktype-btn-secondary:hover {
+  background: color-mix(in srgb, var(--surface-soft) 80%, transparent) !important;
+  color: var(--text-main) !important;
+}
+
+.tasktype-btn-primary {
+  background: var(--text-main) !important;
+  color: var(--panel-bg-strong) !important;
+  border: none !important;
+  letter-spacing: 0.14px;
+}
+
+.tasktype-btn-primary:hover {
+  opacity: 0.9;
+}
+
+/* ── Dialog ── */
+
+.tasktype-dialog {
+  background: var(--panel-bg-strong);
+  border: none;
+}
+
+.tasktype-dialog-header {
+  /* no border – clean separation via divider element */
+}
+
+.tasktype-dialog-divider {
+  height: 1px;
+  background: var(--surface-soft);
+  margin: 0;
+}
+
+.tasktype-heading {
+  color: var(--text-main);
+  letter-spacing: 0.16px;
+}
+
+.tasktype-subtext {
+  color: var(--text-muted);
+  letter-spacing: 0.14px;
+}
+
+.tasktype-label {
+  color: var(--text-main);
+  letter-spacing: 0.14px;
+}
+
+.tasktype-hint {
+  color: var(--text-muted);
+  letter-spacing: 0.14px;
+}
+
+/* ── Input fields ── */
+
+.tasktype-input {
+  border: none !important;
+  background: var(--panel-bg-strong) !important;
+  color: var(--text-main) !important;
+  box-shadow: rgba(0,0,0,0.075) 0px 0px 0px 0.5px inset !important;
+  letter-spacing: 0.14px;
+  transition: box-shadow 0.15s ease !important;
+}
+
+.tasktype-input::placeholder {
+  color: var(--text-muted) !important;
+}
+
+.tasktype-input:focus {
+  box-shadow: rgba(0,0,0,0.075) 0px 0px 0px 0.5px inset, 0 0 0 1px rgba(147, 197, 253, 0.5) !important;
+}
+
+.tasktype-input:disabled {
+  background: color-mix(
+    in srgb,
+    var(--surface-soft) 60%,
+    var(--panel-bg-strong)
+  ) !important;
+  color: var(--text-muted) !important;
+  box-shadow: none !important;
+}
+
+/* ── Error ── */
+
+.tasktype-error {
+  border: 1px solid var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  letter-spacing: 0.14px;
+}
+
+/* ── Close button ── */
+
+.tasktype-close-btn {
+  color: var(--text-muted);
+  border-radius: 9999px;
+}
+
+.tasktype-close-btn:hover {
+  background: var(--surface-soft);
+  color: var(--text-main);
+}
+
+/* ── Empty state ── */
+
+.tasktype-empty {
+  background: var(--surface-soft);
+  border: none;
+  text-align: center;
+}
+
+.tasktype-empty-icon {
+  color: var(--text-muted);
+  font-weight: 300;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.tasktype-empty-title {
+  color: var(--text-main);
+  letter-spacing: 0.16px;
+}
+
+.tasktype-empty-desc {
+  color: var(--text-muted);
+  letter-spacing: 0.14px;
+}
+
 .settings-sidebar-glow {
   position: absolute;
   inset: 0;
@@ -575,6 +795,15 @@ button {
       transparent 28%
     );
   pointer-events: none;
+}
+
+.settings-close-btn {
+  color: var(--text-soft);
+}
+
+.settings-close-btn:hover {
+  background: color-mix(in srgb, var(--panel-bg-strong) 80%, transparent);
+  color: var(--text-main);
 }
 
 .settings-sidebar-kicker {

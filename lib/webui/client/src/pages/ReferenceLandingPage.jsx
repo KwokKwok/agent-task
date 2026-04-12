@@ -1,10 +1,34 @@
 import { AgentTaskLogo } from '../components/AgentTaskLogo.jsx';
-import logoUrl from '../logo.svg';
+import {
+  Ban,
+  Check,
+  EyeOff,
+  Rocket,
+  ShieldCheck,
+  SquareTerminal,
+  TriangleAlert,
+} from 'lucide-react';
 import {
   finalBullets,
   painPoints,
   solutionBullets,
 } from './landingContent.js';
+
+const LANDING_ICONS = {
+  sync_disabled: Ban,
+  visibility_off: EyeOff,
+  warning: TriangleAlert,
+  terminal: SquareTerminal,
+  security: ShieldCheck,
+  rocket_launch: Rocket,
+  check: Check,
+};
+
+function LandingIcon({ name, className = '' }) {
+  const Icon = LANDING_ICONS[name];
+  if (!Icon) return null;
+  return <Icon className={className} strokeWidth={2} aria-hidden="true" />;
+}
 
 function HeroVisual() {
   return (
@@ -142,7 +166,7 @@ export function ReferenceLandingPage() {
               {painPoints.map((item) => (
                 <div key={item.title} className="bg-surface p-8 md:p-12 rounded-[32px] hover:translate-y-[-8px] transition-transform duration-500">
                   <div className="w-12 h-12 flex items-center justify-center rounded-2xl bg-error/10 text-error mb-8">
-                    <span className="material-symbols-outlined">{item.icon}</span>
+                    <LandingIcon name={item.icon} className="h-5 w-5" />
                   </div>
                   <h4 className="font-headline text-xl font-bold mb-4">{item.title}</h4>
                   <p className="font-body text-on-surface-variant leading-relaxed">{item.body}</p>
@@ -168,7 +192,7 @@ export function ReferenceLandingPage() {
                   {solutionBullets.map((item) => (
                     <li key={item.title} className="flex gap-6">
                       <div className="shrink-0 w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container">
-                        <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
+                        <LandingIcon name="check" className="h-4 w-4" />
                       </div>
                       <div>
                         <h5 className="font-headline font-bold mb-2">{item.title}</h5>
@@ -209,7 +233,7 @@ export function ReferenceLandingPage() {
               {finalBullets.map((item) => (
                 <div key={item.title} className={`${item.className} p-10 rounded-[40px] flex ${item.align || 'items-end'}`}>
                   <div>
-                    {item.icon ? <span className="material-symbols-outlined text-3xl mb-4">{item.icon}</span> : null}
+                    {item.icon ? <LandingIcon name={item.icon} className="mb-4 h-8 w-8" /> : null}
                     <h4 className="font-headline text-2xl font-bold mb-2">{item.title}</h4>
                     <p className="font-body text-sm opacity-80">{item.body}</p>
                   </div>
@@ -229,7 +253,7 @@ export function ReferenceLandingPage() {
             </p>
             <div className="flex flex-col items-center justify-center gap-6">
               <a className="w-full md:w-auto bg-primary text-on-primary px-10 py-5 rounded-2xl font-headline font-bold flex items-center justify-center gap-3 text-lg hover:shadow-2xl transition-all" href="/">
-                <span className="material-symbols-outlined">rocket_launch</span>
+                <LandingIcon name="rocket_launch" className="h-5 w-5" />
                 Launch Console
               </a>
             </div>
